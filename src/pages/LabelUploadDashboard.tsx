@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload,
@@ -32,6 +32,59 @@ type ProcessingStepStatus = {
   upload: ProgressState;
   extract: ProgressState;
   scan: ProgressState;
+};
+
+type CopyVariant = "a" | "b";
+
+type VariantCopy = {
+  header: string;
+  subheader: string;
+};
+
+const variantCopy: Record<CopyVariant, VariantCopy> = {
+  a: {
+    header: "Check your label compliance",
+    subheader:
+      "Upload a label image or PDF — we'll extract the data, check compliance, and show you exactly what to fix",
+  },
+  b: {
+    header: "Make your product retail-ready",
+    subheader:
+      "Upload a label image or PDF — we'll extract the data, check compliance, and show you exactly what to fix",
+  },
+};
+
+const resolveVariantFromQuery = (): CopyVariant => {
+  if (typeof window === "undefined") {
+    return "a";
+  }
+
+  const variant = new URLSearchParams(window.location.search).get("variant")?.toLowerCase();
+  return variant === "b" ? "b" : "a";
+};
+
+type AnalyticsPayload = {
+  variant: CopyVariant;
+  stepReached?: ScanStep;
+  ctaId?: string;
+};
+
+const emitVariantAnalytics = (eventName: string, payload: AnalyticsPayload) => {
+  const event = {
+    eventName,
+    timestamp: new Date().toISOString(),
+    ...payload,
+  };
+
+  if (typeof window !== "undefined") {
+    const analyticsWindow = window as Window & {
+      __labelUploadEventLog?: Array<Record<string, string | undefined>>;
+    };
+    analyticsWindow.__labelUploadEventLog = analyticsWindow.__labelUploadEventLog ?? [];
+    analyticsWindow.__labelUploadEventLog.push(event as Record<string, string | undefined>);
+  }
+
+  console.info("[label-upload-analytics]", event);
 };
 
 const marketLabels: Record<Market, string> = {
@@ -201,7 +254,17 @@ const LabelUploadDashboard = () => {
   const [dragActive, setDragActive] = useState(false);
   const [market, setMarket] = useState<Market>("uk");
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [variant] = useState<CopyVariant>(() => resolveVariantFromQuery());
 
+  useEffect(() => {
+    emitVariantAnalytics("step_reached", { variant, stepReached: step });
+  }, [step, variant]);
+
+  const trackCtaClick = (ctaId: string) => {
+    emitVariantAnalytics("cta_click", { variant, stepReached: step, ctaId });
+  };
+
+  const copy = variantCopy[variant];
   const mockScanResults = scanResultsByMarket[market];
   const complianceScore = scoreByMarket[market];
   const mockCompliantVersion = compliantVersionByMarket[market];
@@ -216,6 +279,7 @@ const LabelUploadDashboard = () => {
   const productName = "Vitamin C Brightening Serum";
 
   const simulateScan = () => {
+    trackCtaClick("start_scan");
     setStep("uploading");
     setTimeout(() => setStep("extracting"), 1200);
     setTimeout(() => setStep("scanning"), 3000);
@@ -316,12 +380,8 @@ const LabelUploadDashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Make Your Product Retail-Ready
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Upload a label image or PDF — we'll extract the data, check compliance, and show you exactly what to fix
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{copy.header}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{copy.subheader}</p>
       </div>
 
       {/* Market selector */}
@@ -541,15 +601,15 @@ const LabelUploadDashboard = () => {
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-3">
-              <Button onClick={handleGenerateCompliantVersion} className="gap-2">
+              <Button onClick={() => { trackCtaClick("generate_compliant_version"); handleGenerateCompliantVersion(); }} className="gap-2">
                 <Sparkles className="h-4 w-4" />
                 Generate Compliant Version
               </Button>
-              <Button variant="outline" className="gap-2" onClick={handleDownloadReport}>
+              <Button variant="outline" className="gap-2" onClick={() => { trackCtaClick("download_report"); handleDownloadReport(); }}>
                 <Download className="h-4 w-4" />
                 Download Report
               </Button>
-              <Button variant="outline" onClick={reset}>
+              <Button variant="outline" onClick={() => { trackCtaClick("upload_another_results"); reset(); }}>
                 Upload Another
               </Button>
             </div>
@@ -560,7 +620,7 @@ const LabelUploadDashboard = () => {
               <p className="text-sm text-muted-foreground mt-1 mb-4">
                 Get a free expert review from our compliance team
               </p>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" onClick={() => trackCtaClick("book_free_label_review_results")}>
                 <Calendar className="h-4 w-4" />
                 Book a Free Label Review
               </Button>
@@ -617,14 +677,14 @@ const LabelUploadDashboard = () => {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={() => trackCtaClick("download_compliant_label")}>
                 <Download className="h-4 w-4" />
                 Download Compliant Label
               </Button>
-              <Button variant="outline" onClick={() => setStep("complete")}>
+              <Button variant="outline" onClick={() => { trackCtaClick("back_to_results"); setStep("complete"); }}>
                 Back to Results
               </Button>
-              <Button variant="outline" onClick={reset}>
+              <Button variant="outline" onClick={() => { trackCtaClick("upload_another_compliant"); reset(); }}>
                 Upload Another
               </Button>
             </div>
@@ -635,7 +695,7 @@ const LabelUploadDashboard = () => {
               <p className="text-sm text-muted-foreground mt-1 mb-4">
                 Let us review your final label before printing
               </p>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" onClick={() => trackCtaClick("book_free_label_review_compliant")}>
                 <Calendar className="h-4 w-4" />
                 Book a Free Label Review
               </Button>

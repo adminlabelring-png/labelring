@@ -1,9 +1,11 @@
 import { motion } from "framer-motion";
-import { Package, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Package, AlertTriangle, CheckCircle, Clock, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import { mockProducts } from "@/lib/mock-data";
 import ComplianceScoreBadge from "@/components/ComplianceScoreBadge";
 import RiskBadge from "@/components/RiskBadge";
 import StatusBadge from "@/components/StatusBadge";
+import { Button } from "@/components/ui/button";
 
 const stats = [
   {
@@ -36,11 +38,19 @@ const ProductDashboard = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage your product labels and compliance status
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your product labels and make them retail-ready
+          </p>
+        </div>
+        <Link to="/upload">
+          <Button className="gap-2">
+            <Package className="h-4 w-4" />
+            Check a Label
+          </Button>
+        </Link>
       </div>
 
       {/* Stats */}
@@ -76,26 +86,37 @@ const ProductDashboard = () => {
                 <th className="px-4 py-3 font-medium text-muted-foreground">Product</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">SKU</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Version</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Approval</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Compliance</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Risk</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Issues</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Updated</th>
+                <th className="px-4 py-3 font-medium text-muted-foreground"></th>
               </tr>
             </thead>
             <tbody>
               {mockProducts.map((product) => (
                 <tr key={product.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-3 font-medium">{product.name}</td>
+                  <td className="px-4 py-3">
+                    <div>
+                      <p className="font-medium">{product.name}</p>
+                      <p className="text-xs text-muted-foreground">{product.category}</p>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{product.sku}</td>
-                  <td className="px-4 py-3"><StatusBadge status={product.status} /></td>
-                  <td className="px-4 py-3 font-mono text-xs">{product.labelVersion}</td>
                   <td className="px-4 py-3"><StatusBadge status={product.approvalStatus} /></td>
                   <td className="px-4 py-3"><ComplianceScoreBadge score={product.complianceScore} size="sm" /></td>
                   <td className="px-4 py-3"><RiskBadge level={product.riskLevel} /></td>
-                  <td className="px-4 py-3 text-muted-foreground">{product.issues.length}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{product.lastUpdated}</td>
+                  <td className="px-4 py-3">
+                    {product.issues.length > 0 ? (
+                      <span className="text-warning font-medium">{product.issues.length}</span>
+                    ) : (
+                      <span className="text-success">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs">{product.lastUpdated}</td>
+                  <td className="px-4 py-3">
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  </td>
                 </tr>
               ))}
             </tbody>

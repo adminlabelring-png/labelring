@@ -271,6 +271,13 @@ const LabelUploadDashboard = () => {
   const passCount = mockScanResults.filter((r) => r.status === "pass").length;
   const warnCount = mockScanResults.filter((r) => r.status === "warning").length;
   const failCount = mockScanResults.filter((r) => r.status === "fail").length;
+  const nextBestActions = mockScanResults
+    .filter((result) => result.status !== "pass" && result.fix)
+    .sort((a, b) => {
+      const severityRank: Record<ScanResultStatus, number> = { fail: 0, warning: 1, pass: 2 };
+      return severityRank[a.status] - severityRank[b.status];
+    })
+    .slice(0, 3);
   const marketRiskTextByMarket: Record<Market, string> = {
     uk: "Unresolved UK issues may lead to retailer delisting or MHRA/Trading Standards escalation, especially where UK Responsible Person details are missing.",
     eu: "Unresolved EU issues can block placement on the EU market and trigger competent authority actions, particularly if no EU Responsible Person is listed.",
@@ -544,6 +551,38 @@ const LabelUploadDashboard = () => {
                     {marketRiskTextByMarket[market]}
                   </p>
                 </div>
+              </motion.div>
+            )}
+
+            {/* Next best actions */}
+            {nextBestActions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 }}
+                className="rounded-lg border bg-card p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-semibold">Next Best Actions</h2>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      trackCtaClick("apply_all_generated_version");
+                      handleGenerateCompliantVersion();
+                    }}
+                  >
+                    Apply all in generated version
+                  </Button>
+                </div>
+                <ol className="list-decimal pl-4 space-y-1.5">
+                  {nextBestActions.map((action, index) => (
+                    <li key={`${action.text}-${index}`} className="text-xs text-muted-foreground leading-relaxed">
+                      <span className="font-medium text-foreground">Issue:</span> {action.text}{" "}
+                      <span className="font-medium text-foreground">Fix:</span> {action.fix}{" "}
+                      <span className="font-medium text-foreground">Impact:</span> reduces rejection risk.
+                    </li>
+                  ))}
+                </ol>
               </motion.div>
             )}
 

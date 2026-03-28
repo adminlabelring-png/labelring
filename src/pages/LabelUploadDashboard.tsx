@@ -14,6 +14,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/sonner";
 
 type ScanStep = "idle" | "uploading" | "extracting" | "scanning" | "complete" | "compliant-version";
 type Market = "uk" | "eu" | "aus";
@@ -198,6 +199,7 @@ const LabelUploadDashboard = () => {
   const [step, setStep] = useState<ScanStep>("idle");
   const [dragActive, setDragActive] = useState(false);
   const [market, setMarket] = useState<Market>("uk");
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   const mockScanResults = scanResultsByMarket[market];
   const complianceScore = scoreByMarket[market];
@@ -218,7 +220,81 @@ const LabelUploadDashboard = () => {
     setTimeout(() => setStep("complete"), 4500);
   };
 
-  const reset = () => setStep("idle");
+  const formatDateForFilename = (date: Date) => date.toISOString().slice(0, 10);
+  const formatTimestamp = (date: Date) =>
+    date.toLocaleString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+
+  const changelogByMarket: Record<Market, string[]> = {
+    uk: [
+      "Declared fragrance allergens (Linalool/Limonene) separately",
+      "Added UK Responsible Person details",
+      "Rephrased efficacy claim to avoid unsupported medicinal framing",
+    ],
+    eu: [
+      "Added EU Responsible Person details",
+      "Adjusted claims to cosmetic-only language",
+      "Included PAO metadata and allergen clarification",
+    ],
+    aus: [
+      "Added Australian sponsor contact details",
+      "Removed therapeutic-style positioning",
+      "Added market-safe claims and PAO metadata",
+    ],
+  };
+
+  const handleGenerateCompliantVersion = () => {
+    const now = new Date();
+    setGeneratedAt(formatTimestamp(now));
+    setStep("compliant-version");
+    toast.success("Compliant version generated", {
+      description: `Mocked ${market.toUpperCase()} update created at ${formatTimestamp(now)}`,
+    });
+  };
+
+  const handleDownloadReport = () => {
+    const now = new Date();
+    const issues = mockScanResults
+      .filter((result) => result.status !== "pass")
+      .map((result) => ({
+        severity: result.status,
+        issue: result.text,
+        fix: result.fix,
+        risk: result.risk ?? null,
+      }));
+    const payload = {
+      score: complianceScore,
+      issues,
+      suggestedFixes: issues.map((issue) => issue.fix).filter(Boolean),
+      market,
+      timestamp: now.toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const filename = `label-compliance-report-${market}-${formatDateForFilename(now)}.txt`;
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+
+    toast.success("Report downloaded", {
+      description: `Saved mocked report as ${filename}`,
+    });
+  };
+
+  const reset = () => {
+    setGeneratedAt(null);
+    setStep("idle");
+  };
   const progressSteps = processingStepMap[step];
   const processingPhaseText =
     step === "uploading"
@@ -455,11 +531,11 @@ const LabelUploadDashboard = () => {
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-3">
-              <Button onClick={() => setStep("compliant-version")} className="gap-2">
+              <Button onClick={handleGenerateCompliantVersion} className="gap-2">
                 <Sparkles className="h-4 w-4" />
                 Generate Compliant Version
               </Button>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" onClick={handleDownloadReport}>
                 <Download className="h-4 w-4" />
                 Download Report
               </Button>
@@ -498,6 +574,10 @@ const LabelUploadDashboard = () => {
                   All issues resolved
                 </span>
               </div>
+              <div className="px-4 py-2 border-b text-xs text-muted-foreground flex items-center justify-between">
+                <span>Generated at {generatedAt ?? "Not available"}</span>
+                <span>{marketLabels[market]}</span>
+              </div>
               <div className="p-4">
                 <pre className="text-sm font-mono whitespace-pre-wrap bg-muted p-4 rounded-md text-foreground leading-relaxed">
                   {mockCompliantVersion}
@@ -518,6 +598,10 @@ const LabelUploadDashboard = () => {
                     "EU Responsible Person added · Claims aligned to EU cosmetic framing · PAO symbol included"}
                   {market === "aus" &&
                     "Australian sponsor details added · Therapeutic-style claim risk removed · PAO symbol included"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  <span className="font-semibold text-foreground">Changelog:</span>{" "}
+                  {changelogByMarket[market].join(" · ")}
                 </p>
               </div>
             </div>

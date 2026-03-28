@@ -17,11 +17,27 @@ import { Button } from "@/components/ui/button";
 
 type ScanStep = "idle" | "uploading" | "extracting" | "scanning" | "complete" | "compliant-version";
 type Market = "uk" | "eu" | "aus";
+type ProgressState = "pending" | "active" | "done";
+
+type ProcessingStepStatus = {
+  upload: ProgressState;
+  extract: ProgressState;
+  scan: ProgressState;
+};
 
 const marketLabels: Record<Market, string> = {
   uk: "🇬🇧 United Kingdom",
   eu: "🇪🇺 European Union",
   aus: "🇦🇺 Australia",
+};
+
+const processingStepMap: Record<ScanStep, ProcessingStepStatus> = {
+  idle: { upload: "pending", extract: "pending", scan: "pending" },
+  uploading: { upload: "active", extract: "pending", scan: "pending" },
+  extracting: { upload: "done", extract: "active", scan: "pending" },
+  scanning: { upload: "done", extract: "done", scan: "active" },
+  complete: { upload: "done", extract: "done", scan: "done" },
+  "compliant-version": { upload: "done", extract: "done", scan: "done" },
 };
 
 const mockExtractedText = `Product Name: Vitamin C Brightening Serum
@@ -95,6 +111,13 @@ const LabelUploadDashboard = () => {
   };
 
   const reset = () => setStep("idle");
+  const progressSteps = processingStepMap[step];
+  const processingPhaseText =
+    step === "uploading"
+      ? "Uploading label..."
+      : step === "extracting"
+        ? "Extracting text with OCR..."
+        : `Running ${marketLabels[market]} compliance checks...`;
 
   return (
     <div className="space-y-6">
@@ -164,29 +187,42 @@ const LabelUploadDashboard = () => {
             <div className="flex items-center gap-6">
               <Loader2 className="h-8 w-8 text-primary animate-spin shrink-0" />
               <div className="flex-1">
-                <p className="text-base font-medium">
-                  {step === "uploading" && "Uploading label..."}
-                  {step === "extracting" && "Extracting text with OCR..."}
-                  {step === "scanning" && `Running ${marketLabels[market]} compliance checks...`}
-                </p>
+                <p className="text-base font-medium">{processingPhaseText}</p>
                 <p className="text-sm text-muted-foreground mt-1">This takes a few seconds</p>
+                <p className="sr-only" aria-live="polite">
+                  Processing phase: {processingPhaseText}
+                </p>
               </div>
             </div>
 
             {/* Progress steps */}
             <div className="mt-6 flex gap-4">
               {[
-                { label: "Upload", done: step !== "uploading" },
-                { label: "Extract", done: step === "scanning" },
-                { label: "Scan", done: false },
-              ].map((s, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full ${s.done ? "bg-success" : "bg-border"}`} />
-                  <span className={`text-xs ${s.done ? "text-success font-medium" : "text-muted-foreground"}`}>
-                    {s.label}
-                  </span>
-                </div>
-              ))}
+                { key: "upload", label: "Upload" },
+                { key: "extract", label: "Extract" },
+                { key: "scan", label: "Scan" },
+              ].map((s) => {
+                const state = progressSteps[s.key as keyof ProcessingStepStatus];
+                const dotClass =
+                  state === "done"
+                    ? "bg-success"
+                    : state === "active"
+                      ? "bg-primary animate-pulse"
+                      : "bg-border";
+                const labelClass =
+                  state === "done"
+                    ? "text-success font-medium"
+                    : state === "active"
+                      ? "text-primary font-medium"
+                      : "text-muted-foreground";
+
+                return (
+                  <div key={s.key} className="flex items-center gap-2">
+                    <div className={`h-2 w-2 rounded-full ${dotClass}`} />
+                    <span className={`text-xs ${labelClass}`}>{s.label}</span>
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         )}

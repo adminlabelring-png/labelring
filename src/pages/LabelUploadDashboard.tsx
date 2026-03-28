@@ -18,6 +18,13 @@ import { Button } from "@/components/ui/button";
 type ScanStep = "idle" | "uploading" | "extracting" | "scanning" | "complete" | "compliant-version";
 type Market = "uk" | "eu" | "aus";
 type ProgressState = "pending" | "active" | "done";
+type ScanResultStatus = "pass" | "warning" | "fail";
+type ScanResult = {
+  status: ScanResultStatus;
+  text: string;
+  fix: string | null;
+  risk?: string;
+};
 
 type ProcessingStepStatus = {
   upload: ProgressState;
@@ -49,40 +56,97 @@ Warnings: For external use only. Avoid contact with eyes.
 Batch: NG-VC-2026-03
 Best Before: See base of bottle`;
 
-const mockScanResults = [
-  { status: "pass", text: "INCI ingredient listing present", fix: null },
-  { status: "pass", text: "Net quantity declared", fix: null },
-  { status: "pass", text: "Manufacturer details present", fix: null },
-  {
-    status: "warning",
-    text: "'Anti-aging' claim detected — requires substantiation",
-    fix: "Rephrase to 'helps reduce appearance of fine lines' or provide clinical evidence",
-    risk: "Retailers may reject the product or request reformulation of claims",
-  },
-  {
-    status: "fail",
-    text: "Linalool listed in parfum but not declared as individual allergen",
-    fix: "Add Linalool as a separate entry in the ingredients list per EC 1223/2009 Annex III",
-    risk: "Non-compliance with allergen regulations — could result in product recall",
-  },
-  { status: "pass", text: "Batch code present", fix: null },
-  {
-    status: "warning",
-    text: "UK Responsible Person not separately identified",
-    fix: "Add UK RP name and address on label (required post-Brexit for UK market)",
-    risk: "Product cannot legally be sold in the UK without a designated Responsible Person",
-  },
-];
+const scanResultsByMarket: Record<Market, ScanResult[]> = {
+  uk: [
+    { status: "pass", text: "INCI ingredient listing present", fix: null },
+    { status: "pass", text: "Net quantity declared", fix: null },
+    { status: "pass", text: "Manufacturer details present", fix: null },
+    {
+      status: "warning",
+      text: "'Anti-aging' claim detected — requires substantiation",
+      fix: "Rephrase to 'helps reduce appearance of fine lines' or provide clinical evidence",
+      risk: "UK retailers may reject unsupported efficacy claims under CAP guidance",
+    },
+    {
+      status: "fail",
+      text: "Linalool listed in parfum but not declared as individual allergen",
+      fix: "Add Linalool as a separate entry in the ingredients list per Annex III allergen rules",
+      risk: "Non-compliance with allergen rules can trigger withdrawal requests and recall action",
+    },
+    { status: "pass", text: "Batch code present", fix: null },
+    {
+      status: "warning",
+      text: "UK Responsible Person not separately identified",
+      fix: "Add UK Responsible Person name and UK address on label (post-Brexit requirement)",
+      risk: "Product cannot be legally sold in Great Britain without a designated UK Responsible Person",
+    },
+  ],
+  eu: [
+    { status: "pass", text: "INCI ingredient listing present", fix: null },
+    { status: "pass", text: "Net quantity declared", fix: null },
+    { status: "pass", text: "Manufacturer details present", fix: null },
+    {
+      status: "warning",
+      text: "Claims language may imply medicinal effect",
+      fix: "Rephrase to cosmetic-only performance claims and keep supporting evidence in PIF",
+      risk: "Authorities can require claim withdrawal across EU member states for misleading wording",
+    },
+    {
+      status: "fail",
+      text: "EU Responsible Person not identified",
+      fix: "Add EU Responsible Person name and EU address as required by Regulation (EC) No 1223/2009",
+      risk: "Without an EU Responsible Person, the product may be blocked from EU distribution",
+    },
+    { status: "pass", text: "Batch code present", fix: null },
+    {
+      status: "warning",
+      text: "PAO symbol missing for 30 ml leave-on serum",
+      fix: "Add PAO symbol (e.g., 12M) near durability information",
+      risk: "Missing mandatory symbols may lead to retailer non-acceptance during compliance onboarding",
+    },
+  ],
+  aus: [
+    { status: "pass", text: "INCI ingredient listing present", fix: null },
+    { status: "pass", text: "Net quantity declared", fix: null },
+    { status: "pass", text: "Manufacturer details present", fix: null },
+    {
+      status: "warning",
+      text: "Marketing claim 'anti-aging' may be interpreted as therapeutic",
+      fix: "Use cosmetic claim wording such as 'improves the look of skin texture'",
+      risk: "Therapeutic-style claims can invite TGA scrutiny and delay product launch",
+    },
+    {
+      status: "fail",
+      text: "AUST L/AUST R medicine statement not verified for current claims profile",
+      fix: "Remove therapeutic positioning or register/list with TGA before using medicine-style claims",
+      risk: "Potential enforcement action for advertising an unapproved therapeutic good",
+    },
+    { status: "pass", text: "Batch code present", fix: null },
+    {
+      status: "warning",
+      text: "Australian sponsor contact not shown",
+      fix: "Add Australian sponsor name and physical Australian address for market traceability",
+      risk: "Retailers may reject supply without a local Australian sponsor contact",
+    },
+  ],
+};
 
-const mockCompliantVersion = `Product Name: Vitamin C Brightening Serum
+const scoreByMarket: Record<Market, number> = {
+  uk: 64,
+  eu: 71,
+  aus: 58,
+};
+
+const compliantVersionByMarket: Record<Market, string> = {
+  uk: `Product Name: Vitamin C Brightening Serum
 
 Ingredients (INCI): Aqua, Ascorbic Acid, Glycerin, Niacinamide, Hyaluronic Acid, Tocopherol, Phenoxyethanol, Parfum, Linalool*, Limonene*
-*Allergens declared individually per EC 1223/2009 Annex III
+*Allergens declared individually per Annex III allergen requirements
 
 Net Contents: 30 ml e
 
 Manufacturer: NaturGlow Ltd, 42 Innovation Drive, London, EC2A 4BQ
-UK Responsible Person: NaturGlow Ltd, 42 Innovation Drive, London, EC2A 4BQ
+UK Responsible Person: NaturGlow UK Ltd, 14 Bishopsgate, London, EC2N 3AR
 
 Directions: Apply 2-3 drops to cleansed face morning and evening.
 Warnings: For external use only. Avoid contact with eyes.
@@ -91,17 +155,61 @@ Claims: Helps reduce the appearance of fine lines (rephrased)
 
 Batch: NG-VC-2026-03
 Best Before: See base of bottle
-PAO: 12M ⏳`;
+PAO: 12M ⏳`,
+  eu: `Product Name: Vitamin C Brightening Serum
+
+Ingredients (INCI): Aqua, Ascorbic Acid, Glycerin, Niacinamide, Hyaluronic Acid, Tocopherol, Phenoxyethanol, Parfum, Linalool*, Limonene*
+*Allergens declared individually per Regulation (EC) No 1223/2009 Annex III
+
+Net Contents: 30 ml e
+
+Manufacturer: NaturGlow Ltd, 42 Innovation Drive, London, EC2A 4BQ
+EU Responsible Person: NaturGlow Europe GmbH, Friedrichstraße 68, 10117 Berlin, Germany
+
+Directions: Apply 2-3 drops to cleansed face morning and evening.
+Warnings: For external use only. Avoid contact with eyes.
+
+Claims: Helps improve skin radiance and the appearance of fine lines
+
+Batch: NG-VC-2026-03
+Best Before: See base of bottle
+PAO: 12M ⏳`,
+  aus: `Product Name: Vitamin C Brightening Serum
+
+Ingredients (INCI): Aqua, Ascorbic Acid, Glycerin, Niacinamide, Hyaluronic Acid, Tocopherol, Phenoxyethanol, Parfum, Linalool, Limonene
+
+Net Contents: 30 ml
+
+Manufacturer: NaturGlow Ltd, 42 Innovation Drive, London, EC2A 4BQ
+Australian Sponsor: NaturGlow ANZ Pty Ltd, 120 Collins Street, Melbourne VIC 3000
+
+Directions: Apply 2-3 drops to cleansed face morning and evening.
+Warnings: For external use only. Avoid contact with eyes.
+
+Claims: Helps improve the appearance of brighter, smoother-looking skin
+Regulatory Note: No therapeutic claims made (not an AUST L/AUST R listed medicine)
+
+Batch: NG-VC-2026-03
+Best Before: See base of bottle
+PAO: 12M ⏳`,
+};
 
 const LabelUploadDashboard = () => {
   const [step, setStep] = useState<ScanStep>("idle");
   const [dragActive, setDragActive] = useState(false);
   const [market, setMarket] = useState<Market>("uk");
 
-  const complianceScore = 64;
+  const mockScanResults = scanResultsByMarket[market];
+  const complianceScore = scoreByMarket[market];
+  const mockCompliantVersion = compliantVersionByMarket[market];
   const passCount = mockScanResults.filter((r) => r.status === "pass").length;
   const warnCount = mockScanResults.filter((r) => r.status === "warning").length;
   const failCount = mockScanResults.filter((r) => r.status === "fail").length;
+  const marketRiskTextByMarket: Record<Market, string> = {
+    uk: "Unresolved UK issues may lead to retailer delisting or MHRA/Trading Standards escalation, especially where UK Responsible Person details are missing.",
+    eu: "Unresolved EU issues can block placement on the EU market and trigger competent authority actions, particularly if no EU Responsible Person is listed.",
+    aus: "Unresolved AU issues may cause retailer rejection and potential TGA follow-up where therapeutic-style claims appear without proper registration.",
+  };
 
   const simulateScan = () => {
     setStep("uploading");
@@ -287,7 +395,7 @@ const LabelUploadDashboard = () => {
                     {failCount} issue{failCount !== 1 ? "s" : ""} could lead to retailer rejection or regulatory action
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Unresolved compliance issues may result in product recalls, fines, or being delisted from retail shelves.
+                    {marketRiskTextByMarket[market]}
                   </p>
                 </div>
               </motion.div>
@@ -404,7 +512,12 @@ const LabelUploadDashboard = () => {
                   This version addresses all detected compliance issues
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Allergens declared individually · Claims rephrased · UK Responsible Person added · PAO symbol included
+                  {market === "uk" &&
+                    "Allergens declared individually · Claims rephrased · UK Responsible Person added · PAO symbol included"}
+                  {market === "eu" &&
+                    "EU Responsible Person added · Claims aligned to EU cosmetic framing · PAO symbol included"}
+                  {market === "aus" &&
+                    "Australian sponsor details added · Therapeutic-style claim risk removed · PAO symbol included"}
                 </p>
               </div>
             </div>

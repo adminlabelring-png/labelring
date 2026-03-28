@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
+import { appendSessionScanResult } from "@/lib/session-store";
 
 type ScanStep = "idle" | "uploading" | "extracting" | "scanning" | "complete" | "compliant-version";
 type Market = "uk" | "eu" | "aus";
@@ -212,12 +213,21 @@ const LabelUploadDashboard = () => {
     eu: "Unresolved EU issues can block placement on the EU market and trigger competent authority actions, particularly if no EU Responsible Person is listed.",
     aus: "Unresolved AU issues may cause retailer rejection and potential TGA follow-up where therapeutic-style claims appear without proper registration.",
   };
+  const productName = "Vitamin C Brightening Serum";
 
   const simulateScan = () => {
     setStep("uploading");
     setTimeout(() => setStep("extracting"), 1200);
     setTimeout(() => setStep("scanning"), 3000);
-    setTimeout(() => setStep("complete"), 4500);
+    setTimeout(() => {
+      setStep("complete");
+      appendSessionScanResult({
+        productName,
+        market,
+        score: complianceScore,
+        issueCount: warnCount + failCount,
+      });
+    }, 4500);
   };
 
   const formatDateForFilename = (date: Date) => date.toISOString().slice(0, 10);

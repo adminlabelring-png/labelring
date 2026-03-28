@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Package, AlertTriangle, CheckCircle, Clock, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -6,35 +7,126 @@ import ComplianceScoreBadge from "@/components/ComplianceScoreBadge";
 import RiskBadge from "@/components/RiskBadge";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
+import {
+  getSessionScanResults,
+  subscribeToSessionScanResults,
+  type SessionScanResult,
+} from "@/lib/session-store";
 
-const stats = [
-  {
-    label: "Total Products",
-    value: mockProducts.length,
-    icon: Package,
-    color: "text-primary",
-  },
-  {
-    label: "Compliant",
-    value: mockProducts.filter((p) => p.complianceScore >= 85).length,
-    icon: CheckCircle,
-    color: "text-success",
-  },
-  {
-    label: "Issues Found",
-    value: mockProducts.reduce((sum, p) => sum + p.issues.length, 0),
-    icon: AlertTriangle,
-    color: "text-warning",
-  },
-  {
-    label: "Pending Review",
-    value: mockProducts.filter((p) => p.approvalStatus === "pending").length,
-    icon: Clock,
-    color: "text-muted-foreground",
-  },
-];
+type DashboardRow = {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  approvalStatus: "approved" | "pending" | "rejected";
+  complianceScore: number;
+  riskLevel: "low" | "medium" | "high";
+  issueCount: number;
+  lastUpdated: string;
+  recentlyScanned: boolean;
+  scannedMarket?: SessionScanResult["market"];
+};
+
+const getRiskLevelFromScore = (score: number): DashboardRow["riskLevel"] => {
+  if (score >= 85) return "low";
+  if (score >= 60) return "medium";
+  return "high";
+};
+
+const formatScanDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
 const ProductDashboard = () => {
+  const [sessionScans, setSessionScans] = useState(() => getSessionScanResults());
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSessionScanResults(() => {
+      setSessionScans(getSessionScanResults());
+    });
+    return unsubscribe;
+  }, []);
+
+  const rows = useMemo<DashboardRow[]>(() => {
+    const merged = new Map(
+      mockProducts.map((product) => [
+        product.name.toLowerCase(),
+        {
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+          category: product.category,
+          approvalStatus: product.approvalStatus,
+          complianceScore: product.complianceScore,
+          riskLevel: product.riskLevel,
+          issueCount: product.issues.length,
+          lastUpdated: product.lastUpdated,
+          recentlyScanned: false,
+        } satisfies DashboardRow,
+      ]),
+    );
+
+    sessionScans.forEach((scan, index) => {
+      const key = scan.productName.toLowerCase();
+      const existing = merged.get(key);
+      if (existing) {
+        merged.set(key, {
+          ...existing,
+          complianceScore: scan.score,
+          riskLevel: getRiskLevelFromScore(scan.score),
+          issueCount: scan.issueCount,
+          lastUpdated: formatScanDate(scan.scannedAt),
+          approvalStatus: "pending",
+          recentlyScanned: true,
+          scannedMarket: scan.market,
+        });
+        return;
+      }
+
+      merged.set(key, {
+        id: scan.id,
+        name: scan.productName,
+        sku: `SESSION-${String(index + 1).padStart(3, "0")}`,
+        category: "Recently Uploaded",
+        approvalStatus: "pending",
+        complianceScore: scan.score,
+        riskLevel: getRiskLevelFromScore(scan.score),
+        issueCount: scan.issueCount,
+        lastUpdated: formatScanDate(scan.scannedAt),
+        recentlyScanned: true,
+        scannedMarket: scan.market,
+      });
+    });
+
+    return Array.from(merged.values());
+  }, [sessionScans]);
+
+  const stats = [
+    {
+      label: "Total Products",
+      value: rows.length,
+      icon: Package,
+      color: "text-primary",
+    },
+    {
+      label: "Compliant",
+      value: rows.filter((p) => p.complianceScore >= 85).length,
+      icon: CheckCircle,
+      color: "text-success",
+    },
+    {
+      label: "Issues Found",
+      value: rows.reduce((sum, p) => sum + p.issueCount, 0),
+      icon: AlertTriangle,
+      color: "text-warning",
+    },
+    {
+      label: "Pending Review",
+      value: rows.filter((p) => p.approvalStatus === "pending").length,
+      icon: Clock,
+      color: "text-muted-foreground",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -94,21 +186,37 @@ const ProductDashboard = () => {
               </tr>
             </thead>
             <tbody>
-              {mockProducts.map((product) => (
+              {rows.map((product) => (
                 <tr key={product.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
                   <td className="px-4 py-3">
                     <div>
-                      <p className="font-medium">{product.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{product.name}</p>
+                        {product.recentlyScanned && (
+                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+                            Recently Scanned
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">{product.category}</p>
                     </div>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{product.sku}</td>
-                  <td className="px-4 py-3"><StatusBadge status={product.approvalStatus} /></td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col items-start gap-1">
+                      <StatusBadge status={product.approvalStatus} />
+                      {product.recentlyScanned && (
+                        <span className="text-[11px] text-muted-foreground">
+                          Ongoing management ({product.scannedMarket?.toUpperCase()})
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3"><ComplianceScoreBadge score={product.complianceScore} size="sm" /></td>
                   <td className="px-4 py-3"><RiskBadge level={product.riskLevel} /></td>
                   <td className="px-4 py-3">
-                    {product.issues.length > 0 ? (
-                      <span className="text-warning font-medium">{product.issues.length}</span>
+                    {product.issueCount > 0 ? (
+                      <span className="text-warning font-medium">{product.issueCount}</span>
                     ) : (
                       <span className="text-success">—</span>
                     )}

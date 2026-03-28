@@ -60,7 +60,7 @@ const ProductDashboard = () => {
           riskLevel: product.riskLevel,
           issueCount: product.issues.length,
           lastUpdated: product.lastUpdated,
-          recentlyScanned: false,
+          recentlyScanned: false as boolean,
         } satisfies DashboardRow,
       ]),
     );

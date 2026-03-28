@@ -61,7 +61,7 @@ const ProductDashboard = () => {
           issueCount: product.issues.length,
           lastUpdated: product.lastUpdated,
           recentlyScanned: false,
-        } satisfies DashboardRow,
+        } as DashboardRow,
       ]),
     );
 

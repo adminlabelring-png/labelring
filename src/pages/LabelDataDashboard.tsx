@@ -147,10 +147,12 @@ const LabelDataDashboard = () => {
                   ))}
                 </div>
                 <div className="p-4 border-t border-[hsl(var(--risk-low)/0.2)]">
-                  <Button variant="outline" className="w-full gap-2">
-                    <Download className="h-4 w-4" />
-                    Download Compliance Report
-                  </Button>
+                  <a href="/compliance-report.pdf" download="Labelring-Compliance-Report.pdf">
+                    <Button variant="outline" className="w-full gap-2">
+                      <Download className="h-4 w-4" />
+                      Download Compliance Report
+                    </Button>
+                  </a>
                 </div>
               </motion.div>
             )}

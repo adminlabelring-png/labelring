@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Package, AlertTriangle, CheckCircle, Clock, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { mockProducts } from "@/lib/mock-data";
 import ComplianceScoreBadge from "@/components/ComplianceScoreBadge";
 import RiskBadge from "@/components/RiskBadge";
@@ -37,6 +37,7 @@ const formatScanDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
 const ProductDashboard = () => {
+  const navigate = useNavigate();
   const [sessionScans, setSessionScans] = useState(() => getSessionScanResults());
 
   useEffect(() => {
@@ -134,7 +135,7 @@ const ProductDashboard = () => {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your product labels and make them retail-ready
+            Track compliance status across all your products. Upload a new label to see it scored instantly.
           </p>
         </div>
         <Link to="/upload">
@@ -187,7 +188,7 @@ const ProductDashboard = () => {
             </thead>
             <tbody>
               {rows.map((product) => (
-                <tr key={product.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                <tr key={product.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate('/upload')}>
                   <td className="px-4 py-3">
                     <div>
                       <div className="flex items-center gap-2">

@@ -32,6 +32,7 @@ type ProcessingStepStatus = {
   upload: ProgressState;
   extract: ProgressState;
   scan: ProgressState;
+  report: ProgressState;
 };
 
 type CopyVariant = "a" | "b";
@@ -94,12 +95,12 @@ const marketLabels: Record<Market, string> = {
 };
 
 const processingStepMap: Record<ScanStep, ProcessingStepStatus> = {
-  idle: { upload: "pending", extract: "pending", scan: "pending" },
-  uploading: { upload: "active", extract: "pending", scan: "pending" },
-  extracting: { upload: "done", extract: "active", scan: "pending" },
-  scanning: { upload: "done", extract: "done", scan: "active" },
-  complete: { upload: "done", extract: "done", scan: "done" },
-  "compliant-version": { upload: "done", extract: "done", scan: "done" },
+  idle: { upload: "pending", extract: "pending", scan: "pending", report: "pending" },
+  uploading: { upload: "active", extract: "pending", scan: "pending", report: "pending" },
+  extracting: { upload: "done", extract: "active", scan: "pending", report: "pending" },
+  scanning: { upload: "done", extract: "done", scan: "active", report: "pending" },
+  complete: { upload: "done", extract: "done", scan: "done", report: "done" },
+  "compliant-version": { upload: "done", extract: "done", scan: "done", report: "done" },
 };
 
 const mockExtractedText = `Product Name: Vitamin C Brightening Serum
@@ -377,11 +378,24 @@ const LabelUploadDashboard = () => {
     setStep("idle");
   };
   const progressSteps = processingStepMap[step];
+  const scoreStrokeColor =
+    complianceScore >= 85
+      ? "hsl(var(--risk-low))"
+      : complianceScore >= 60
+      ? "hsl(var(--risk-medium))"
+      : "hsl(var(--risk-high))";
+
+  const scoreInterpretation =
+    complianceScore >= 85 ? "Retail-ready" : complianceScore >= 60 ? "Needs some fixes" : "Needs attention";
+
+  const scoreInterpretationColor =
+    complianceScore >= 85 ? "text-success" : complianceScore >= 60 ? "text-warning" : "text-destructive";
+
   const processingPhaseText =
     step === "uploading"
       ? "Uploading label..."
       : step === "extracting"
-        ? "Extracting text with OCR..."
+        ? "Reading label fields, ingredient names & claims..."
         : `Running ${marketLabels[market]} compliance checks...`;
 
   return (
@@ -429,9 +443,27 @@ const LabelUploadDashboard = () => {
           >
             <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
             <p className="text-base font-medium">Drop your label file here</p>
-            <p className="text-sm text-muted-foreground mt-1 mb-4">
+            <p className="text-sm text-muted-foreground mt-1">
               Supports PNG, JPG, PDF — max 10 MB
             </p>
+            <div className="flex items-center justify-center gap-2 mt-4 mb-5 flex-wrap">
+              {[
+                { icon: Upload, label: "Upload" },
+                { icon: FileText, label: "Extract text" },
+                { icon: ShieldAlert, label: "Check compliance" },
+                { icon: CheckCircle, label: "Your report" },
+              ].map((flowStep, i, arr) => (
+                <div key={flowStep.label} className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <flowStep.icon className="h-3.5 w-3.5" />
+                    <span>{flowStep.label}</span>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <span className="text-muted-foreground/40 text-xs">→</span>
+                  )}
+                </div>
+              ))}
+            </div>
             <Button onClick={simulateScan}>Select File</Button>
           </motion.div>
         )}
@@ -462,6 +494,7 @@ const LabelUploadDashboard = () => {
                 { key: "upload", label: "Upload" },
                 { key: "extract", label: "Extract" },
                 { key: "scan", label: "Scan" },
+                { key: "report", label: "Report" },
               ].map((s) => {
                 const state = progressSteps[s.key as keyof ProcessingStepStatus];
                 const dotClass =
@@ -499,24 +532,25 @@ const LabelUploadDashboard = () => {
             {/* Score hero */}
             <div className="rounded-lg border bg-card p-6">
               <div className="flex items-center gap-6">
-                <div className="relative">
-                  <svg className="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
+                <div className="relative shrink-0">
+                  <svg className="h-28 w-28 -rotate-90" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
                     <circle
                       cx="50" cy="50" r="42" fill="none"
-                      stroke="hsl(var(--risk-medium))"
+                      stroke={scoreStrokeColor}
                       strokeWidth="8"
                       strokeDasharray={`${complianceScore * 2.64} 264`}
                       strokeLinecap="round"
                     />
                   </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-2xl font-bold">{complianceScore}%</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-bold leading-none">{complianceScore}%</span>
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-lg font-semibold">Label Compliance Score</h2>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <h2 className="text-lg font-semibold">Your Compliance Report</h2>
+                  <span className={`text-sm font-medium ${scoreInterpretationColor}`}>{scoreInterpretation}</span>
+                  <p className="text-xs text-muted-foreground mt-1">
                     Checked against {marketLabels[market]} regulations
                   </p>
                   <div className="flex gap-4 mt-3">

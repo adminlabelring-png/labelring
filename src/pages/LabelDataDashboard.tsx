@@ -1,5 +1,8 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Wand2, CheckCircle, Download } from "lucide-react";
 import { mockLabelData } from "@/lib/mock-data";
+import { Button } from "@/components/ui/button";
 
 const fields = [
   { label: "Product Name", value: mockLabelData.productName },
@@ -11,7 +14,24 @@ const fields = [
   { label: "Use By Format", value: mockLabelData.useByFormat },
 ];
 
+const issuesFound = [
+  { field: "Ingredients", problem: "INCI names not in descending concentration order", fixed: "Reordered by concentration: Rosa Canina Fruit Oil, Simmondsia Chinensis Seed Oil, Tocopherol, Rosmarinus Officinalis Leaf Extract, Linalool, Limonene, Geraniol" },
+  { field: "Allergens", problem: "Allergens not bold in ingredient list", fixed: "Allergens highlighted in bold: **Limonene**, **Geraniol**, **Linalool**" },
+  { field: "Responsible Person", problem: "UK Responsible Person not listed", fixed: "Added: NaturGlow Ltd, 12 Bloom Street, London EC2A 4NE, United Kingdom" },
+];
+
 const LabelDataDashboard = () => {
+  const [showFixed, setShowFixed] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerateCompliant = () => {
+    setIsGenerating(true);
+    setTimeout(() => {
+      setIsGenerating(false);
+      setShowFixed(true);
+    }, 1500);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -62,7 +82,81 @@ const LabelDataDashboard = () => {
             </div>
           </motion.div>
 
-          {/* Version History placeholder */}
+          {/* Issues Found */}
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="rounded-lg border border-[hsl(var(--risk-high)/0.3)] bg-card">
+            <div className="p-4 border-b">
+              <h2 className="text-base font-semibold">Issues Found ({issuesFound.length})</h2>
+            </div>
+            <div className="divide-y">
+              {issuesFound.map((issue, i) => (
+                <div key={i} className="p-4 space-y-1">
+                  <p className="text-sm font-medium text-[hsl(var(--risk-high))]">{issue.field}</p>
+                  <p className="text-sm text-muted-foreground">{issue.problem}</p>
+                </div>
+              ))}
+            </div>
+            <div className="p-4 border-t">
+              <Button
+                onClick={handleGenerateCompliant}
+                disabled={isGenerating || showFixed}
+                className="w-full gap-2"
+              >
+                {isGenerating ? (
+                  <>
+                    <Wand2 className="h-4 w-4 animate-spin" />
+                    Generating compliant version…
+                  </>
+                ) : showFixed ? (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    Compliant version generated
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4" />
+                    Generate Compliant Version
+                  </>
+                )}
+              </Button>
+            </div>
+          </motion.div>
+
+          {/* Fixed / Compliant version */}
+          <AnimatePresence>
+            {showFixed && (
+              <motion.div
+                initial={{ opacity: 0, y: 12, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -8 }}
+                className="rounded-lg border-2 border-[hsl(var(--risk-low)/0.4)] bg-[hsl(var(--risk-low-bg))] overflow-hidden"
+              >
+                <div className="p-4 border-b border-[hsl(var(--risk-low)/0.2)]">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-[hsl(var(--risk-low))]" />
+                    <h2 className="text-base font-semibold text-[hsl(var(--risk-low))]">Compliant Version</h2>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">All issues have been auto-corrected</p>
+                </div>
+                <div className="divide-y divide-[hsl(var(--risk-low)/0.15)]">
+                  {issuesFound.map((issue, i) => (
+                    <div key={i} className="p-4 space-y-1">
+                      <p className="text-sm font-medium">{issue.field}</p>
+                      <p className="text-xs text-muted-foreground line-through">{issue.problem}</p>
+                      <p className="text-sm text-[hsl(var(--risk-low))]">✓ {issue.fixed}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-4 border-t border-[hsl(var(--risk-low)/0.2)]">
+                  <Button variant="outline" className="w-full gap-2">
+                    <Download className="h-4 w-4" />
+                    Download Compliance Report
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Version History */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="rounded-lg border bg-card">
             <div className="p-4 border-b">
               <h2 className="text-base font-semibold">Version History</h2>

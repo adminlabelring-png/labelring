@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
+  Home,
   LayoutDashboard,
   ShieldCheck,
   Database,
@@ -12,7 +13,8 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Products" },
+  { to: "/", icon: Home, label: "Home" },
+  { to: "/products", icon: LayoutDashboard, label: "Products" },
   { to: "/compliance", icon: ShieldCheck, label: "Compliance" },
   { to: "/label-data", icon: Database, label: "Label Data" },
   { to: "/upload", icon: Upload, label: "Upload & Scan" },

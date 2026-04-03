@@ -1,27 +1,9 @@
 import { NavLink, useLocation } from "react-router-dom";
-import {
-  Home,
-  LayoutDashboard,
-  ShieldCheck,
-  Database,
-  Upload,
-  BookOpen,
-  Users,
-  History,
-  BarChart3,
-  CircleDot,
-} from "lucide-react";
+import { Home, ScanLine, CircleDot } from "lucide-react";
 
 const navItems = [
   { to: "/", icon: Home, label: "Home" },
-  { to: "/products", icon: LayoutDashboard, label: "Products" },
-  { to: "/compliance", icon: ShieldCheck, label: "Compliance" },
-  { to: "/label-data", icon: Database, label: "Label Data" },
-  { to: "/upload", icon: Upload, label: "Upload & Scan" },
-  { to: "/rules", icon: BookOpen, label: "Rules Engine" },
-  { to: "/collaboration", icon: Users, label: "Collaboration" },
-  { to: "/versions", icon: History, label: "Version Control" },
-  { to: "/analytics", icon: BarChart3, label: "Analytics" },
+  { to: "/scan", icon: ScanLine, label: "Scan Label" },
 ];
 
 const AppSidebar = () => {
@@ -40,7 +22,7 @@ const AppSidebar = () => {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.to;
+          const isActive = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
           return (
             <NavLink
               key={item.to}
@@ -60,15 +42,7 @@ const AppSidebar = () => {
 
       {/* Footer */}
       <div className="border-t border-sidebar-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-semibold text-sidebar-accent-foreground">
-            NG
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-primary truncate">NaturGlow</p>
-            <p className="text-xs text-sidebar-muted truncate">Pro Plan</p>
-          </div>
-        </div>
+        <p className="text-xs text-sidebar-muted">Guided label review tool</p>
       </div>
     </aside>
   );

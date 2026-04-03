@@ -3,14 +3,12 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ScanProvider } from "@/lib/scan-context";
 import AppLayout from "@/components/AppLayout";
-import HomePage from "@/pages/HomePage";
-import ProductDashboard from "@/pages/ProductDashboard";
-import ComplianceDashboard from "@/pages/ComplianceDashboard";
-import LabelDataDashboard from "@/pages/LabelDataDashboard";
-import LabelUploadDashboard from "@/pages/LabelUploadDashboard";
-import RulesEngineDashboard from "@/pages/RulesEngineDashboard";
-import PlaceholderPage from "@/pages/PlaceholderPage";
+import LandingPage from "@/pages/LandingPage";
+import ScanUploadPage from "@/pages/ScanUploadPage";
+import ScanProcessingPage from "@/pages/ScanProcessingPage";
+import ScanResultsPage from "@/pages/ScanResultsPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,22 +18,19 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/products" element={<ProductDashboard />} />
-            <Route path="/compliance" element={<ComplianceDashboard />} />
-            <Route path="/label-data" element={<LabelDataDashboard />} />
-            <Route path="/upload" element={<LabelUploadDashboard />} />
-            <Route path="/rules" element={<RulesEngineDashboard />} />
-            <Route path="/collaboration" element={<PlaceholderPage title="Collaboration" description="Team review and approval workflows" />} />
-            <Route path="/versions" element={<PlaceholderPage title="Version Control" description="Historical label versions and audit trail" />} />
-            <Route path="/analytics" element={<PlaceholderPage title="Analytics" description="Compliance metrics and reporting" />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <ScanProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/scan" element={<ScanUploadPage />} />
+              <Route path="/scan/processing" element={<ScanProcessingPage />} />
+              <Route path="/scan/results" element={<ScanResultsPage />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </ScanProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

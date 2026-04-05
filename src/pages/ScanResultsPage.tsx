@@ -245,7 +245,9 @@ const ScanResultsPage = () => {
                     {field.status === "not_found" ? "Not found on label" : "Unclear / needs review"}
                   </p>
                   <p className="text-sm text-[hsl(var(--risk-low))]">
-                    ✓ {field.label === "Manufacturer / Responsible Person"
+                    ✓ {field.suggestedFix
+                      ? field.suggestedFix
+                      : field.label === "Manufacturer / Responsible Person"
                       ? "Add: NaturGlow Ltd, 12 Bloom Street, London EC2A 4NE"
                       : field.label === "Expiry / Best Before"
                       ? "Add: Best before see base of bottle, format DD/MM/YYYY"

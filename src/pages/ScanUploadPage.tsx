@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Upload, FileImage, FileText, X, Camera } from "lucide-react";
+import { Upload, FileImage, FileText, X, Camera, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useScan } from "@/lib/scan-context";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const ACCEPTED = ".jpg,.jpeg,.png,.pdf";
 
@@ -11,6 +12,8 @@ const ScanUploadPage = () => {
   const { setFile } = useScan();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -47,8 +50,66 @@ const ScanUploadPage = () => {
     setSelectedFile(null);
     setPreview(null);
     if (inputRef.current) inputRef.current.value = "";
+    if (cameraRef.current) cameraRef.current.value = "";
   };
 
+  // Mobile layout: big action buttons first, no scrolling needed
+  if (isMobile) {
+    return (
+      <div className="flex flex-col min-h-[80vh] px-2">
+        <input ref={inputRef} type="file" accept={ACCEPTED} onChange={onSelect} className="hidden" />
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onSelect} className="hidden" />
+
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 pb-6">
+          <h1 className="text-xl font-semibold tracking-tight">Scan your label</h1>
+          <p className="text-sm text-muted-foreground mt-1">Take a photo or upload an image to get started</p>
+        </motion.div>
+
+        {selectedFile ? (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex-1 flex flex-col items-center justify-center gap-4">
+            {preview ? (
+              <img src={preview} alt="Label preview" className="max-h-48 rounded-xl object-contain border" />
+            ) : (
+              <FileText className="h-20 w-20 text-primary" />
+            )}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium truncate max-w-[200px]">{selectedFile.name}</span>
+              <button onClick={clear} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <Button onClick={startScan} size="lg" className="w-full max-w-xs gap-2 h-14 text-base">
+              <FileImage className="h-5 w-5" />
+              Scan Label
+            </Button>
+          </motion.div>
+        ) : (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="flex-1 flex flex-col gap-4 justify-center">
+            <Button
+              onClick={() => cameraRef.current?.click()}
+              size="lg"
+              className="w-full gap-3 h-16 text-base rounded-xl"
+            >
+              <Camera className="h-6 w-6" />
+              Take Photo
+            </Button>
+            <Button
+              onClick={() => inputRef.current?.click()}
+              variant="outline"
+              size="lg"
+              className="w-full gap-3 h-16 text-base rounded-xl"
+            >
+              <ImageIcon className="h-6 w-6" />
+              Upload Image
+            </Button>
+            <p className="text-xs text-muted-foreground text-center mt-2">Supports JPG, PNG, PDF</p>
+          </motion.div>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
@@ -71,13 +132,7 @@ const ScanUploadPage = () => {
           dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
         }`}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPTED}
-          onChange={onSelect}
-          className="hidden"
-        />
+        <input ref={inputRef} type="file" accept={ACCEPTED} onChange={onSelect} className="hidden" />
 
         {selectedFile ? (
           <div className="space-y-4">

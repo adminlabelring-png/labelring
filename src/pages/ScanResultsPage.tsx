@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useScan, DetectedField } from "@/lib/scan-context";
+import { generateComplianceReport } from "@/lib/generate-report";
 
 const statusIcon = (status: DetectedField["status"]) => {
   switch (status) {
@@ -229,11 +230,9 @@ const ScanResultsPage = () => {
               <><Wand2 className="h-4 w-4" /> Generate compliant version</>
             )}
           </Button>
-          <a href="/compliance-report.pdf" download="Label-Review-Report.pdf">
-            <Button variant="outline" className="w-full gap-2">
+          <Button variant="outline" className="w-full gap-2" onClick={() => generateComplianceReport(result)}>
               <Download className="h-4 w-4" /> Download report
-            </Button>
-          </a>
+          </Button>
           <Button variant="outline" className="gap-2">
             <Calendar className="h-4 w-4" /> Book a review call
           </Button>

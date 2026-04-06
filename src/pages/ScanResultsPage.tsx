@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw } from "lucide-react";
+import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useScan, DetectedField } from "@/lib/scan-context";
 
@@ -17,7 +17,7 @@ const statusLabel = (status: DetectedField["status"]) => {
   switch (status) {
     case "found": return "Found";
     case "needs_review": return "Needs review";
-    case "not_found": return "Not found";
+    case "not_found": return "Not visible in uploaded image";
   }
 };
 
@@ -36,6 +36,7 @@ const ScanResultsPage = () => {
 
   const foundFields = result.fields.filter(f => f.status === "found");
   const issueFields = result.fields.filter(f => f.status !== "found");
+  const isLowInfo = foundFields.length <= 2 || (foundFields.length / result.fields.length) < 0.3;
 
   const handleGenerate = () => {
     setGenerating(true);
@@ -61,6 +62,24 @@ const ScanResultsPage = () => {
           Results for: {result.fileName}
         </p>
       </motion.div>
+
+      {/* Low-info warning */}
+      {isLowInfo && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.03 }}
+          className="rounded-lg border border-[hsl(var(--risk-medium)/0.4)] bg-[hsl(var(--risk-medium-bg))] p-4 flex gap-3"
+        >
+          <Info className="h-5 w-5 text-[hsl(var(--risk-medium))] shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium">Limited information detected</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              This may be due to incomplete label visibility or a front-of-pack image. Try uploading the outer packaging or back-of-pack for better results.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Category detection */}
       <motion.div
@@ -165,7 +184,7 @@ const ScanResultsPage = () => {
           className="rounded-lg border border-[hsl(var(--risk-high)/0.3)] bg-card"
         >
           <div className="p-4 border-b">
-            <h2 className="text-base font-semibold">Needs Review / Not Detected</h2>
+            <h2 className="text-base font-semibold">Needs Review / Not Found on This Label</h2>
           </div>
           <div className="divide-y">
             {issueFields.map((field) => (
@@ -176,7 +195,7 @@ const ScanResultsPage = () => {
                   {field.value ? (
                     <p className="text-sm text-muted-foreground mt-0.5">{field.value}</p>
                   ) : (
-                    <p className="text-sm text-muted-foreground mt-0.5 italic">No value detected</p>
+                    <p className="text-sm text-muted-foreground mt-0.5 italic">Not found on this label</p>
                   )}
                 </div>
                 <span className={`${field.status === "not_found" ? "compliance-badge-low" : "compliance-badge-medium"} rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0`}>
@@ -242,7 +261,7 @@ const ScanResultsPage = () => {
                 <div key={field.label} className="p-4 space-y-1">
                   <p className="text-sm font-medium">{field.label}</p>
                   <p className="text-xs text-muted-foreground line-through">
-                    {field.status === "not_found" ? "Not found on label" : "Unclear / needs review"}
+                    {field.status === "not_found" ? "Not found on this label" : "Unclear / needs review"}
                   </p>
                   <p className="text-sm text-[hsl(var(--risk-low))]">
                     ✓ {field.suggestedFix
@@ -280,7 +299,7 @@ const ScanResultsPage = () => {
         className="rounded-lg bg-muted p-4"
       >
         <p className="text-xs text-muted-foreground text-center">
-          This is an automated label review to help identify missing or unclear information. Final compliance should be verified against official guidelines.
+          This is an automated label review to help identify missing or unclear information. Some products don't display full information on the primary packaging. For best results, upload outer packaging or back-of-pack. Final compliance should be verified against official guidelines.
         </p>
       </motion.div>
 

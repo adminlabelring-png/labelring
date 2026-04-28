@@ -1,0 +1,249 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Mail, ExternalLink, RefreshCw } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
+
+interface LeadClick {
+  id: string;
+  lead_id: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  landing_path: string;
+  referrer: string | null;
+  user_agent: string | null;
+  raw_query: string | null;
+  created_at: string;
+}
+
+const AdminLeadsPage = () => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [submitting, setSubmitting] = useState(false);
+
+  const [clicks, setClicks] = useState<LeadClick[]>([]);
+  const [loadingClicks, setLoadingClicks] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const fetchClicks = async () => {
+    setLoadingClicks(true);
+    const { data, error } = await supabase
+      .from("lead_clicks")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) toast.error(error.message);
+    else setClicks((data as LeadClick[]) ?? []);
+    setLoadingClicks(false);
+  };
+
+  useEffect(() => {
+    if (session) fetchClicks();
+  }, [session]);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/admin/leads` },
+        });
+        if (error) throw error;
+        toast.success("Account created — you're signed in.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (err: any) {
+      toast.error(err.message ?? "Authentication failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setClicks([]);
+  };
+
+  if (authLoading) {
+    return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
+  }
+
+  if (!session) {
+    return (
+      <div className="max-w-sm mx-auto py-16">
+        <Card className="p-6 space-y-4">
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold">Admin sign in</h1>
+            <p className="text-sm text-muted-foreground">
+              {mode === "signin" ? "Sign in to view lead activity." : "Create the first admin account."}
+            </p>
+          </div>
+          <form onSubmit={handleAuth} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
+            </Button>
+          </form>
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline"
+            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+          >
+            {mode === "signin" ? "Need an account? Create one" : "Already have an account? Sign in"}
+          </button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Group clicks by lead_id for the summary
+  const byLead = new Map<string, LeadClick[]>();
+  clicks.forEach((c) => {
+    const key = c.lead_id || "(anonymous)";
+    if (!byLead.has(key)) byLead.set(key, []);
+    byLead.get(key)!.push(c);
+  });
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Lead activity</h1>
+          <p className="text-sm text-muted-foreground">
+            Visits coming from email links (anything with <code>?lead=</code> or <code>?utm_*</code>)
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchClicks} disabled={loadingClicks}>
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${loadingClicks ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleSignOut}>
+            Sign out
+          </Button>
+        </div>
+      </div>
+
+      {/* How to use */}
+      <Card className="p-4 bg-muted/30">
+        <p className="text-sm font-medium mb-1">How to track a lead</p>
+        <p className="text-xs text-muted-foreground mb-2">
+          Append <code>?lead=NAME</code> to any link you put in an email. Optionally add UTM params.
+        </p>
+        <code className="text-xs block bg-background border rounded px-2 py-1.5 break-all">
+          {window.location.origin}/?lead=john&amp;utm_source=email&amp;utm_campaign=oct-outreach
+        </code>
+      </Card>
+
+      {/* Per-lead summary */}
+      <div>
+        <h2 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">By lead</h2>
+        <div className="grid gap-2">
+          {byLead.size === 0 && (
+            <p className="text-sm text-muted-foreground py-6 text-center">No tracked clicks yet.</p>
+          )}
+          {[...byLead.entries()].map(([lead, items]) => (
+            <Card key={lead} className="p-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-sm">{lead}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {items.length} click{items.length !== 1 ? "s" : ""} · last{" "}
+                    {new Date(items[0].created_at).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              {items[0].utm_campaign && (
+                <Badge variant="secondary" className="text-xs">
+                  {items[0].utm_campaign}
+                </Badge>
+              )}
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Full event log */}
+      <div>
+        <h2 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">All clicks</h2>
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium">When</th>
+                  <th className="text-left px-3 py-2 font-medium">Lead</th>
+                  <th className="text-left px-3 py-2 font-medium">Source</th>
+                  <th className="text-left px-3 py-2 font-medium">Campaign</th>
+                  <th className="text-left px-3 py-2 font-medium">Landed on</th>
+                  <th className="text-left px-3 py-2 font-medium">Referrer</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clicks.map((c) => (
+                  <tr key={c.id} className="border-t">
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
+                      {new Date(c.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 font-medium">{c.lead_id ?? "—"}</td>
+                    <td className="px-3 py-2">{c.utm_source ?? "—"}</td>
+                    <td className="px-3 py-2">{c.utm_campaign ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      <span className="inline-flex items-center gap-1">
+                        <ExternalLink className="h-3 w-3" />
+                        {c.landing_path}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground truncate max-w-[200px]">
+                      {c.referrer || "direct"}
+                    </td>
+                  </tr>
+                ))}
+                {clicks.length === 0 && !loadingClicks && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                      No clicks yet. Send a test link to yourself with <code>?lead=test</code> to verify.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default AdminLeadsPage;

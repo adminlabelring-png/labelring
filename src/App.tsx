@@ -9,7 +9,9 @@ import LandingPage from "@/pages/LandingPage";
 import ScanUploadPage from "@/pages/ScanUploadPage";
 import ScanProcessingPage from "@/pages/ScanProcessingPage";
 import ScanResultsPage from "@/pages/ScanResultsPage";
+import AdminLeadsPage from "@/pages/AdminLeadsPage";
 import NotFound from "@/pages/NotFound";
+import { LeadTracker } from "@/lib/lead-tracker";
 
 const queryClient = new QueryClient();
 
@@ -20,12 +22,14 @@ const App = () => (
       <Sonner />
       <ScanProvider>
         <BrowserRouter>
+          <LeadTracker />
           <Routes>
             <Route element={<AppLayout />}>
               <Route path="/" element={<LandingPage />} />
               <Route path="/scan" element={<ScanUploadPage />} />
               <Route path="/scan/processing" element={<ScanProcessingPage />} />
               <Route path="/scan/results" element={<ScanResultsPage />} />
+              <Route path="/admin/leads" element={<AdminLeadsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

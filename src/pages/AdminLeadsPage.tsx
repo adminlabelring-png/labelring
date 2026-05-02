@@ -36,6 +36,11 @@ const AdminLeadsPage = () => {
   const [clicks, setClicks] = useState<LeadClick[]>([]);
   const [loadingClicks, setLoadingClicks] = useState(false);
 
+  const [scans, setScans] = useState<any[]>([]);
+  const [loadingScans, setLoadingScans] = useState(false);
+  const [activeScan, setActiveScan] = useState<any | null>(null);
+  const [scanFileUrl, setScanFileUrl] = useState<string | null>(null);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);

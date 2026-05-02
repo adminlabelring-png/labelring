@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Mail, ExternalLink, RefreshCw } from "lucide-react";
+import { Mail, ExternalLink, RefreshCw, FileImage, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 
 interface LeadClick {

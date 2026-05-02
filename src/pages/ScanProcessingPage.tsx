@@ -71,6 +71,35 @@ const ScanProcessingPage = () => {
         setProgress(100);
         setStepIndex(steps.length - 1);
 
+        // Persist scan (file + results) to Lovable Cloud — fire & forget so UX is never blocked
+        (async () => {
+          try {
+            const ext = file.name.split(".").pop() ?? "bin";
+            const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
+            const { error: upErr } = await supabase.storage
+              .from("scans")
+              .upload(path, file, { contentType: file.type, upsert: false });
+            if (upErr) console.warn("scan upload failed", upErr);
+
+            const params = new URLSearchParams(window.location.search);
+            await supabase.from("scans").insert({
+              file_name: file.name,
+              file_path: upErr ? null : path,
+              mime_type: file.type,
+              category: result.category,
+              found_count: result.foundCount,
+              total_count: result.totalCount,
+              needs_attention_count: result.needsAttentionCount,
+              fields: result.fields as any,
+              lead_id: params.get("lead"),
+              user_agent: navigator.userAgent,
+              referrer: document.referrer || null,
+            });
+          } catch (e) {
+            console.warn("scan persist failed", e);
+          }
+        })();
+
         // Brief pause so user sees 100%
         setTimeout(() => {
           setResult(result);

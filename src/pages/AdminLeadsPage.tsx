@@ -62,8 +62,34 @@ const AdminLeadsPage = () => {
     setLoadingClicks(false);
   };
 
+  const fetchScans = async () => {
+    setLoadingScans(true);
+    const { data, error } = await supabase
+      .from("scans" as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) toast.error(error.message);
+    else setScans((data as any[]) ?? []);
+    setLoadingScans(false);
+  };
+
+  const openScan = async (scan: any) => {
+    setActiveScan(scan);
+    setScanFileUrl(null);
+    if (scan.file_path) {
+      const { data, error } = await supabase.storage
+        .from("scans")
+        .createSignedUrl(scan.file_path, 60 * 10);
+      if (!error && data?.signedUrl) setScanFileUrl(data.signedUrl);
+    }
+  };
+
   useEffect(() => {
-    if (session) fetchClicks();
+    if (session) {
+      fetchClicks();
+      fetchScans();
+    }
   }, [session]);
 
   const handleAuth = async (e: React.FormEvent) => {

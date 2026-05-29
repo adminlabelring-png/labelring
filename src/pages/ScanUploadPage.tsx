@@ -1,15 +1,17 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Upload, FileImage, FileText, X, Camera, ImageIcon } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload, FileImage, FileText, X, Camera, ImageIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useScan } from "@/lib/scan-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const ACCEPTED = ".jpg,.jpeg,.png,.pdf";
+const SEASON_TAGS = ["Christmas", "Diwali", "Easter", "Summer", "Promo Pack", "Limited Edition"];
 
 const ScanUploadPage = () => {
-  const { setFile } = useScan();
+  const { setFile, options, setOptions } = useScan();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);

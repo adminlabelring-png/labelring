@@ -220,6 +220,8 @@ const ScanUploadPage = () => {
         )}
       </motion.div>
 
+      {seasonalPanel}
+
       {/* Action buttons */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}

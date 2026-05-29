@@ -363,7 +363,35 @@ const AdminLeadsPage = () => {
                 <Badge variant="secondary">{activeScan.category ?? "—"}</Badge>
                 <Badge variant="outline">{new Date(activeScan.created_at).toLocaleString()}</Badge>
                 {activeScan.lead_id && <Badge>Lead: {activeScan.lead_id}</Badge>}
+                {activeScan.is_seasonal && (
+                  <Badge variant="outline" className="border-[hsl(var(--risk-medium)/0.5)] text-[hsl(var(--risk-medium))]">
+                    Seasonal{activeScan.season_tag ? ` · ${activeScan.season_tag}` : ""}
+                  </Badge>
+                )}
+                {activeScan.changes_detected?.hasAnyChange && (
+                  <Badge variant="outline" className="border-[hsl(var(--risk-high)/0.5)] text-[hsl(var(--risk-high))]">
+                    Change vs previous
+                  </Badge>
+                )}
               </div>
+
+              {activeScan.changes_detected?.hasAnyChange && (
+                <div className="rounded border border-[hsl(var(--risk-high)/0.3)] bg-[hsl(var(--risk-high-bg))] p-3 text-xs space-y-1">
+                  <p className="font-semibold text-[hsl(var(--risk-high))]">Detected changes</p>
+                  {activeScan.changes_detected.ingredientsAdded?.length > 0 && (
+                    <p>+ Ingredients: {activeScan.changes_detected.ingredientsAdded.join(", ")}</p>
+                  )}
+                  {activeScan.changes_detected.ingredientsRemoved?.length > 0 && (
+                    <p>− Ingredients: {activeScan.changes_detected.ingredientsRemoved.join(", ")}</p>
+                  )}
+                  {activeScan.changes_detected.manufacturerChanged && (
+                    <p>Manufacturer: {activeScan.changes_detected.manufacturerChanged.from ?? "—"} → {activeScan.changes_detected.manufacturerChanged.to ?? "—"}</p>
+                  )}
+                  {activeScan.changes_detected.originChanged && (
+                    <p>Origin: {activeScan.changes_detected.originChanged.from ?? "—"} → {activeScan.changes_detected.originChanged.to ?? "—"}</p>
+                  )}
+                </div>
+              )}
 
               {scanFileUrl && (
                 activeScan.mime_type?.startsWith("image/") ? (

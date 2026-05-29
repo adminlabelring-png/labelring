@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw, Info } from "lucide-react";
+import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw, Info, Sparkles, GitCompare, Plus, Minus, Building2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useScan, DetectedField } from "@/lib/scan-context";
 import { generateComplianceReport } from "@/lib/generate-report";

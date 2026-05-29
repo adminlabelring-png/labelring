@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
+import type { ScanChanges } from "./scan-diff";
 
 export interface DetectedField {
   label: string;
@@ -14,29 +15,43 @@ export interface ScanResult {
   foundCount: number;
   totalCount: number;
   needsAttentionCount: number;
+  isSeasonal?: boolean;
+  seasonTag?: string | null;
+  changes?: ScanChanges | null;
+}
+
+export interface ScanOptions {
+  isSeasonal: boolean;
+  seasonTag: string | null;
 }
 
 interface ScanContextType {
   file: File | null;
   setFile: (f: File | null) => void;
+  options: ScanOptions;
+  setOptions: (o: ScanOptions) => void;
   result: ScanResult | null;
   setResult: (r: ScanResult | null) => void;
   reset: () => void;
 }
 
+const defaultOptions: ScanOptions = { isSeasonal: false, seasonTag: null };
+
 const ScanContext = createContext<ScanContextType | null>(null);
 
 export const ScanProvider = ({ children }: { children: ReactNode }) => {
   const [file, setFile] = useState<File | null>(null);
+  const [options, setOptions] = useState<ScanOptions>(defaultOptions);
   const [result, setResult] = useState<ScanResult | null>(null);
 
   const reset = () => {
     setFile(null);
     setResult(null);
+    setOptions(defaultOptions);
   };
 
   return (
-    <ScanContext.Provider value={{ file, setFile, result, setResult, reset }}>
+    <ScanContext.Provider value={{ file, setFile, options, setOptions, result, setResult, reset }}>
       {children}
     </ScanContext.Provider>
   );

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw, Info } from "lucide-react";
+import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw, Info, Sparkles, GitCompare, Plus, Minus, Building2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useScan, DetectedField } from "@/lib/scan-context";
 import { generateComplianceReport } from "@/lib/generate-report";
@@ -63,6 +63,120 @@ const ScanResultsPage = () => {
           Results for: {result.fileName}
         </p>
       </motion.div>
+
+      {/* Seasonal risk banner */}
+      {result.isSeasonal && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg border-2 border-[hsl(var(--risk-medium)/0.5)] bg-[hsl(var(--risk-medium-bg))] p-4 flex gap-3"
+        >
+          <Sparkles className="h-5 w-5 text-[hsl(var(--risk-medium))] shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-[hsl(var(--risk-medium))]">
+              Seasonal Risk Mode applied{result.seasonTag ? ` · ${result.seasonTag}` : ""}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Stricter checks were applied for promo claims, batch/lot codes, date markings, allergen carry-over, and net-quantity changes — common failure points for limited-run SKUs.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Supplier & Spec Change Detection */}
+      {result.changes && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04 }}
+          className={`rounded-lg border-2 p-4 space-y-3 ${
+            result.changes.hasAnyChange
+              ? "border-[hsl(var(--risk-high)/0.4)] bg-[hsl(var(--risk-high-bg))]"
+              : "border-[hsl(var(--risk-low)/0.4)] bg-[hsl(var(--risk-low-bg))]"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <GitCompare className={`h-5 w-5 shrink-0 mt-0.5 ${result.changes.hasAnyChange ? "text-[hsl(var(--risk-high))]" : "text-[hsl(var(--risk-low))]"}`} />
+            <div className="flex-1">
+              <p className="text-sm font-semibold">
+                {result.changes.hasAnyChange ? "Supplier / spec changes detected" : "No changes vs previous scan"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Compared against scan from {new Date(result.changes.comparedToDate).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+
+          {result.changes.hasAnyChange && (
+            <div className="space-y-2 pl-8">
+              {result.changes.ingredientsAdded.length > 0 && (
+                <div className="text-xs">
+                  <span className="inline-flex items-center gap-1 font-medium text-[hsl(var(--risk-high))]">
+                    <Plus className="h-3 w-3" /> Ingredients added:
+                  </span>{" "}
+                  <span className="text-muted-foreground">{result.changes.ingredientsAdded.join(", ")}</span>
+                </div>
+              )}
+              {result.changes.ingredientsRemoved.length > 0 && (
+                <div className="text-xs">
+                  <span className="inline-flex items-center gap-1 font-medium text-[hsl(var(--risk-medium))]">
+                    <Minus className="h-3 w-3" /> Ingredients removed:
+                  </span>{" "}
+                  <span className="text-muted-foreground">{result.changes.ingredientsRemoved.join(", ")}</span>
+                </div>
+              )}
+              {(result.changes.allergensAdded.length > 0 || result.changes.allergensRemoved.length > 0) && (
+                <div className="text-xs">
+                  <span className="font-medium text-[hsl(var(--risk-high))]">⚠ Allergen change:</span>{" "}
+                  {result.changes.allergensAdded.length > 0 && (
+                    <span className="text-muted-foreground">added {result.changes.allergensAdded.join(", ")} </span>
+                  )}
+                  {result.changes.allergensRemoved.length > 0 && (
+                    <span className="text-muted-foreground">removed {result.changes.allergensRemoved.join(", ")}</span>
+                  )}
+                </div>
+              )}
+              {result.changes.manufacturerChanged && (
+                <div className="text-xs">
+                  <span className="inline-flex items-center gap-1 font-medium text-[hsl(var(--risk-high))]">
+                    <Building2 className="h-3 w-3" /> Manufacturer / RP changed:
+                  </span>{" "}
+                  <span className="text-muted-foreground">
+                    {result.changes.manufacturerChanged.from ?? "—"} → {result.changes.manufacturerChanged.to ?? "—"}
+                  </span>
+                </div>
+              )}
+              {result.changes.originChanged && (
+                <div className="text-xs">
+                  <span className="inline-flex items-center gap-1 font-medium text-[hsl(var(--risk-medium))]">
+                    <Globe className="h-3 w-3" /> Country of origin changed:
+                  </span>{" "}
+                  <span className="text-muted-foreground">
+                    {result.changes.originChanged.from ?? "—"} → {result.changes.originChanged.to ?? "—"}
+                  </span>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground italic pt-1">
+                Supplier or spec changes often don't make it onto the label — please verify before printing.
+              </p>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {result.changes === null && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04 }}
+          className="rounded-lg border bg-card p-3 flex gap-3 items-start"
+        >
+          <GitCompare className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground">
+            <strong className="text-foreground">Baseline saved.</strong> Future scans of this product will be automatically compared to detect supplier or ingredient changes.
+          </p>
+        </motion.div>
+      )}
 
       {/* Low-info warning */}
       {isLowInfo && (

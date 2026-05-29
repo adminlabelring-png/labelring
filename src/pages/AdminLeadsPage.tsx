@@ -289,31 +289,55 @@ const AdminLeadsPage = () => {
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="text-left px-3 py-2 font-medium">When</th>
-                    <th className="text-left px-3 py-2 font-medium">File</th>
+                    <th className="text-left px-3 py-2 font-medium">Product / File</th>
                     <th className="text-left px-3 py-2 font-medium">Category</th>
                     <th className="text-left px-3 py-2 font-medium">Found</th>
                     <th className="text-left px-3 py-2 font-medium">Issues</th>
+                    <th className="text-left px-3 py-2 font-medium">Flags</th>
                     <th className="text-left px-3 py-2 font-medium">Lead</th>
                     <th className="text-left px-3 py-2 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {scans.map((s) => (
-                    <tr key={s.id} className="border-t hover:bg-muted/20 cursor-pointer" onClick={() => openScan(s)}>
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
-                        {new Date(s.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 font-medium truncate max-w-[220px]">{s.file_name}</td>
-                      <td className="px-3 py-2">{s.category ?? "—"}</td>
-                      <td className="px-3 py-2 text-[hsl(var(--risk-low))]">{s.found_count}/{s.total_count}</td>
-                      <td className="px-3 py-2 text-[hsl(var(--risk-high))]">{s.needs_attention_count}</td>
-                      <td className="px-3 py-2">{s.lead_id ?? "—"}</td>
-                      <td className="px-3 py-2 text-xs text-primary">View →</td>
-                    </tr>
-                  ))}
+                  {scans.map((s) => {
+                    const changes = s.changes_detected as any;
+                    const hasChange = changes?.hasAnyChange;
+                    return (
+                      <tr key={s.id} className="border-t hover:bg-muted/20 cursor-pointer" onClick={() => openScan(s)}>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
+                          {new Date(s.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 font-medium truncate max-w-[220px]">
+                          {s.product_name || s.file_name}
+                          {s.product_name && (
+                            <div className="text-xs text-muted-foreground font-normal truncate">{s.file_name}</div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">{s.category ?? "—"}</td>
+                        <td className="px-3 py-2 text-[hsl(var(--risk-low))]">{s.found_count}/{s.total_count}</td>
+                        <td className="px-3 py-2 text-[hsl(var(--risk-high))]">{s.needs_attention_count}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex flex-wrap gap-1">
+                            {s.is_seasonal && (
+                              <Badge variant="outline" className="text-[10px] border-[hsl(var(--risk-medium)/0.5)] text-[hsl(var(--risk-medium))]">
+                                Seasonal{s.season_tag ? ` · ${s.season_tag}` : ""}
+                              </Badge>
+                            )}
+                            {hasChange && (
+                              <Badge variant="outline" className="text-[10px] border-[hsl(var(--risk-high)/0.5)] text-[hsl(var(--risk-high))]">
+                                Change detected
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">{s.lead_id ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs text-primary">View →</td>
+                      </tr>
+                    );
+                  })}
                   {scans.length === 0 && !loadingScans && (
                     <tr>
-                      <td colSpan={7} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                      <td colSpan={8} className="px-3 py-8 text-center text-sm text-muted-foreground">
                         No scans yet.
                       </td>
                     </tr>
@@ -339,7 +363,35 @@ const AdminLeadsPage = () => {
                 <Badge variant="secondary">{activeScan.category ?? "—"}</Badge>
                 <Badge variant="outline">{new Date(activeScan.created_at).toLocaleString()}</Badge>
                 {activeScan.lead_id && <Badge>Lead: {activeScan.lead_id}</Badge>}
+                {activeScan.is_seasonal && (
+                  <Badge variant="outline" className="border-[hsl(var(--risk-medium)/0.5)] text-[hsl(var(--risk-medium))]">
+                    Seasonal{activeScan.season_tag ? ` · ${activeScan.season_tag}` : ""}
+                  </Badge>
+                )}
+                {activeScan.changes_detected?.hasAnyChange && (
+                  <Badge variant="outline" className="border-[hsl(var(--risk-high)/0.5)] text-[hsl(var(--risk-high))]">
+                    Change vs previous
+                  </Badge>
+                )}
               </div>
+
+              {activeScan.changes_detected?.hasAnyChange && (
+                <div className="rounded border border-[hsl(var(--risk-high)/0.3)] bg-[hsl(var(--risk-high-bg))] p-3 text-xs space-y-1">
+                  <p className="font-semibold text-[hsl(var(--risk-high))]">Detected changes</p>
+                  {activeScan.changes_detected.ingredientsAdded?.length > 0 && (
+                    <p>+ Ingredients: {activeScan.changes_detected.ingredientsAdded.join(", ")}</p>
+                  )}
+                  {activeScan.changes_detected.ingredientsRemoved?.length > 0 && (
+                    <p>− Ingredients: {activeScan.changes_detected.ingredientsRemoved.join(", ")}</p>
+                  )}
+                  {activeScan.changes_detected.manufacturerChanged && (
+                    <p>Manufacturer: {activeScan.changes_detected.manufacturerChanged.from ?? "—"} → {activeScan.changes_detected.manufacturerChanged.to ?? "—"}</p>
+                  )}
+                  {activeScan.changes_detected.originChanged && (
+                    <p>Origin: {activeScan.changes_detected.originChanged.from ?? "—"} → {activeScan.changes_detected.originChanged.to ?? "—"}</p>
+                  )}
+                </div>
+              )}
 
               {scanFileUrl && (
                 activeScan.mime_type?.startsWith("image/") ? (

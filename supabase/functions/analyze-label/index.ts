@@ -60,7 +60,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const { imageBase64, fileName } = await req.json();
+    const { imageBase64, fileName, isSeasonal, seasonTag } = await req.json();
 
     if (!imageBase64) {
       return new Response(
@@ -68,6 +68,10 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const seasonalAddendum = isSeasonal
+      ? `\n\nSEASONAL / TEMPORARY SKU RISK MODE IS ACTIVE${seasonTag ? ` (tag: ${seasonTag})` : ""}.\nApply stricter scrutiny: be especially critical about (a) on-pack promotional claims and "limited edition" wording that must still meet labelling rules, (b) batch/lot codes — seasonal runs often skip these, (c) date markings (best-before / expiry) clearly visible, (d) allergen carry-over from shared seasonal production lines, (e) net quantity changes for promo packs / multipacks, (f) any temporary co-branding or partner logos that may need additional declarations. When in doubt, mark fields as "needs_review" rather than "found".`
+      : "";
 
     // Detect mime type from base64 header or default to jpeg
     let mimeType = "image/jpeg";
@@ -84,7 +88,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: SYSTEM_PROMPT + seasonalAddendum },
           {
             role: "user",
             content: [

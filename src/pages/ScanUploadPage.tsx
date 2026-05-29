@@ -1,15 +1,17 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Upload, FileImage, FileText, X, Camera, ImageIcon } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload, FileImage, FileText, X, Camera, ImageIcon, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useScan } from "@/lib/scan-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const ACCEPTED = ".jpg,.jpeg,.png,.pdf";
+const SEASON_TAGS = ["Christmas", "Diwali", "Easter", "Summer", "Promo Pack", "Limited Edition"];
 
 const ScanUploadPage = () => {
-  const { setFile } = useScan();
+  const { setFile, options, setOptions } = useScan();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -53,6 +55,64 @@ const ScanUploadPage = () => {
     if (cameraRef.current) cameraRef.current.value = "";
   };
 
+  const seasonalPanel = (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.08 }}
+      className={`rounded-xl border p-4 transition-colors ${
+        options.isSeasonal
+          ? "border-[hsl(var(--risk-medium)/0.5)] bg-[hsl(var(--risk-medium-bg))]"
+          : "bg-card"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <Sparkles className={`h-5 w-5 mt-0.5 shrink-0 ${options.isSeasonal ? "text-[hsl(var(--risk-medium))]" : "text-muted-foreground"}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">Seasonal / Promo SKU</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Apply stricter checks for limited editions, promo packs, and seasonal launches.
+              </p>
+            </div>
+            <Switch
+              checked={options.isSeasonal}
+              onCheckedChange={(v) => setOptions({ ...options, isSeasonal: v, seasonTag: v ? options.seasonTag : null })}
+            />
+          </div>
+          <AnimatePresence>
+            {options.isSeasonal && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-[hsl(var(--risk-medium)/0.3)]">
+                  {SEASON_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setOptions({ ...options, seasonTag: options.seasonTag === tag ? null : tag })}
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                        options.seasonTag === tag
+                          ? "bg-[hsl(var(--risk-medium))] text-white"
+                          : "bg-background border hover:bg-accent"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </motion.div>
+  );
+
   // Mobile layout: big action buttons first, no scrolling needed
   if (isMobile) {
     return (
@@ -78,6 +138,7 @@ const ScanUploadPage = () => {
                 <X className="h-4 w-4" />
               </button>
             </div>
+            <div className="w-full max-w-xs">{seasonalPanel}</div>
             <Button onClick={startScan} size="lg" className="w-full max-w-xs gap-2 h-14 text-base">
               <FileImage className="h-5 w-5" />
               Scan Label
@@ -158,6 +219,8 @@ const ScanUploadPage = () => {
           </div>
         )}
       </motion.div>
+
+      {seasonalPanel}
 
       {/* Action buttons */}
       <motion.div

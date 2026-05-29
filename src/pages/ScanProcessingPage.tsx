@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ScanLine } from "lucide-react";
 import { useScan, buildScanResult, generateMockResult } from "@/lib/scan-context";
+import { computeScanDiff, extractProductName, normalizeProductKey } from "@/lib/scan-diff";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -12,6 +13,7 @@ const steps = [
   "Extracting text (OCR)…",
   "Mapping fields…",
   "Detecting category…",
+  "Checking against previous scans…",
   "Preparing review…",
 ];
 
@@ -20,7 +22,6 @@ const fileToBase64 = (file: File): Promise<string> =>
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // Strip the data:...;base64, prefix
       const base64 = result.split(",")[1];
       resolve(base64);
     };
@@ -29,7 +30,7 @@ const fileToBase64 = (file: File): Promise<string> =>
   });
 
 const ScanProcessingPage = () => {
-  const { file, setResult } = useScan();
+  const { file, options, setResult } = useScan();
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -44,10 +45,9 @@ const ScanProcessingPage = () => {
     if (calledRef.current) return;
     calledRef.current = true;
 
-    // Animate steps on a timer
     const stepTimer = setInterval(() => {
       setStepIndex((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
-    }, 3000);
+    }, 2500);
 
     const progressTimer = setInterval(() => {
       setProgress((prev) => (prev >= 95 ? 95 : prev + 1));
@@ -58,20 +58,52 @@ const ScanProcessingPage = () => {
         const imageBase64 = await fileToBase64(file);
 
         const { data, error } = await supabase.functions.invoke("analyze-label", {
-          body: { imageBase64, fileName: file.name },
+          body: {
+            imageBase64,
+            fileName: file.name,
+            isSeasonal: options.isSeasonal,
+            seasonTag: options.seasonTag,
+          },
         });
 
         if (error) throw error;
-
-        if (data?.error) {
-          throw new Error(data.error);
-        }
+        if (data?.error) throw new Error(data.error);
 
         const result = buildScanResult(file.name, data);
+        result.isSeasonal = options.isSeasonal;
+        result.seasonTag = options.seasonTag;
+
+        // --- Supplier change detection: find latest prior scan with matching product key ---
+        const productName = extractProductName(result.fields);
+        const productKey = normalizeProductKey(productName);
+
+        if (productKey) {
+          try {
+            const { data: priorScans } = await supabase
+              .from("scans" as any)
+              .select("id, created_at, fields")
+              .eq("product_key", productKey)
+              .order("created_at", { ascending: false })
+              .limit(1);
+
+            if (priorScans && priorScans.length > 0) {
+              const prior = priorScans[0] as any;
+              result.changes = computeScanDiff(
+                { id: prior.id, created_at: prior.created_at, fields: prior.fields ?? [] },
+                result.fields
+              );
+            } else {
+              result.changes = null;
+            }
+          } catch (e) {
+            console.warn("prior scan lookup failed", e);
+          }
+        }
+
         setProgress(100);
         setStepIndex(steps.length - 1);
 
-        // Persist scan (file + results) to Lovable Cloud — fire & forget so UX is never blocked
+        // Persist scan + file (fire & forget)
         (async () => {
           try {
             const ext = file.name.split(".").pop() ?? "bin";
@@ -82,7 +114,7 @@ const ScanProcessingPage = () => {
             if (upErr) console.warn("scan upload failed", upErr);
 
             const params = new URLSearchParams(window.location.search);
-            await supabase.from("scans").insert({
+            await supabase.from("scans" as any).insert({
               file_name: file.name,
               file_path: upErr ? null : path,
               mime_type: file.type,
@@ -94,13 +126,18 @@ const ScanProcessingPage = () => {
               lead_id: params.get("lead"),
               user_agent: navigator.userAgent,
               referrer: document.referrer || null,
+              is_seasonal: options.isSeasonal,
+              season_tag: options.seasonTag,
+              product_name: productName,
+              product_key: productKey,
+              compared_to_scan_id: result.changes?.comparedToScanId ?? null,
+              changes_detected: result.changes ?? null,
             });
           } catch (e) {
             console.warn("scan persist failed", e);
           }
         })();
 
-        // Brief pause so user sees 100%
         setTimeout(() => {
           setResult(result);
           navigate("/scan/results", { replace: true });
@@ -110,6 +147,8 @@ const ScanProcessingPage = () => {
         toast.error("AI analysis failed — showing demo results instead");
 
         const fallback = generateMockResult(file.name);
+        fallback.isSeasonal = options.isSeasonal;
+        fallback.seasonTag = options.seasonTag;
         setProgress(100);
         setTimeout(() => {
           setResult(fallback);
@@ -124,7 +163,7 @@ const ScanProcessingPage = () => {
       clearInterval(stepTimer);
       clearInterval(progressTimer);
     };
-  }, [file, navigate, setResult]);
+  }, [file, options, navigate, setResult]);
 
   return (
     <div className="max-w-md mx-auto flex flex-col items-center justify-center min-h-[60vh] space-y-8">
@@ -145,6 +184,11 @@ const ScanProcessingPage = () => {
         >
           {steps[stepIndex]}
         </motion.p>
+        {options.isSeasonal && (
+          <p className="text-xs text-[hsl(var(--risk-medium))] font-medium">
+            Seasonal risk mode active{options.seasonTag ? ` · ${options.seasonTag}` : ""}
+          </p>
+        )}
       </div>
 
       <div className="w-full max-w-xs">

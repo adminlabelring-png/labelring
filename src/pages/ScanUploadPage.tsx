@@ -138,6 +138,7 @@ const ScanUploadPage = () => {
                 <X className="h-4 w-4" />
               </button>
             </div>
+            <div className="w-full max-w-xs">{seasonalPanel}</div>
             <Button onClick={startScan} size="lg" className="w-full max-w-xs gap-2 h-14 text-base">
               <FileImage className="h-5 w-5" />
               Scan Label

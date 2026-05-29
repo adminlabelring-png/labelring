@@ -62,49 +62,67 @@ export type Database = {
       scans: {
         Row: {
           category: string | null
+          changes_detected: Json | null
+          compared_to_scan_id: string | null
           created_at: string
           fields: Json
           file_name: string
           file_path: string | null
           found_count: number
           id: string
+          is_seasonal: boolean
           lead_id: string | null
           market: string | null
           mime_type: string | null
           needs_attention_count: number
+          product_key: string | null
+          product_name: string | null
           referrer: string | null
+          season_tag: string | null
           total_count: number
           user_agent: string | null
         }
         Insert: {
           category?: string | null
+          changes_detected?: Json | null
+          compared_to_scan_id?: string | null
           created_at?: string
           fields?: Json
           file_name: string
           file_path?: string | null
           found_count?: number
           id?: string
+          is_seasonal?: boolean
           lead_id?: string | null
           market?: string | null
           mime_type?: string | null
           needs_attention_count?: number
+          product_key?: string | null
+          product_name?: string | null
           referrer?: string | null
+          season_tag?: string | null
           total_count?: number
           user_agent?: string | null
         }
         Update: {
           category?: string | null
+          changes_detected?: Json | null
+          compared_to_scan_id?: string | null
           created_at?: string
           fields?: Json
           file_name?: string
           file_path?: string | null
           found_count?: number
           id?: string
+          is_seasonal?: boolean
           lead_id?: string | null
           market?: string | null
           mime_type?: string | null
           needs_attention_count?: number
+          product_key?: string | null
+          product_name?: string | null
           referrer?: string | null
+          season_tag?: string | null
           total_count?: number
           user_agent?: string | null
         }

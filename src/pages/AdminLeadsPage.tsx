@@ -262,6 +262,7 @@ const AdminLeadsPage = () => {
   const refreshAll = () => {
     fetchClicks();
     fetchScans();
+    fetchRequests();
   };
 
   return (
@@ -286,6 +287,9 @@ const AdminLeadsPage = () => {
         <TabsList>
           <TabsTrigger value="leads">Leads ({clicks.length})</TabsTrigger>
           <TabsTrigger value="scans">Scans ({scans.length})</TabsTrigger>
+          <TabsTrigger value="approvals">
+            Approvals {pendingRequests.length > 0 && <Badge className="ml-1.5 h-4 px-1 text-[10px]">{pendingRequests.length}</Badge>}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="leads" className="space-y-6">

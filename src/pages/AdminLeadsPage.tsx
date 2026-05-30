@@ -594,7 +594,21 @@ const AdminLeadsPage = () => {
                     Change vs previous
                   </Badge>
                 )}
+                {activeScanLocked && (
+                  <Badge className="gap-1"><Lock className="h-3 w-3" /> Approved master v{activeScanLocked.version_number}</Badge>
+                )}
               </div>
+
+              {activeScan.product_key && (
+                <div className="flex gap-2 items-center">
+                  <Button size="sm" variant="outline" onClick={() => setLockTarget(activeScan)}>
+                    <Lock className="h-3 w-3 mr-1" /> Lock as approved master
+                  </Button>
+                  <Link to={`/admin/products/${encodeURIComponent(activeScan.product_key)}`} className="inline-flex items-center text-sm text-primary gap-1">
+                    <History className="h-3 w-3" /> Version history
+                  </Link>
+                </div>
+              )}
 
               {activeScan.changes_detected?.hasAnyChange && (
                 <div className="rounded border border-[hsl(var(--risk-high)/0.3)] bg-[hsl(var(--risk-high-bg))] p-3 text-xs space-y-1">

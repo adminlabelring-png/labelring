@@ -99,11 +99,80 @@ const AdminLeadsPage = () => {
   const openScan = async (scan: any) => {
     setActiveScan(scan);
     setScanFileUrl(null);
+    setActiveScanLocked(null);
     if (scan.file_path) {
       const { data, error } = await supabase.storage
         .from("scans")
         .createSignedUrl(scan.file_path, 60 * 10);
       if (!error && data?.signedUrl) setScanFileUrl(data.signedUrl);
+    }
+    const locked = await getLockedVersionByScan(scan.id);
+    setActiveScanLocked(locked);
+  };
+
+  const fetchRequests = async () => {
+    setLoadingRequests(true);
+    const data = await getPendingRequests();
+    setPendingRequests(data);
+    setLoadingRequests(false);
+  };
+
+  const handleLockSubmit = async () => {
+    if (!lockTarget || !lockBy.trim()) {
+      toast.error("Reviewer name is required");
+      return;
+    }
+    if (!lockTarget.product_key) {
+      toast.error("This scan has no product name — cannot be locked");
+      return;
+    }
+    setLockSubmitting(true);
+    try {
+      const v = await lockScanAsVersion({
+        productKey: lockTarget.product_key,
+        productName: lockTarget.product_name,
+        scanId: lockTarget.id,
+        approvedBy: lockBy.trim(),
+        note: lockNote.trim() || null,
+      });
+      toast.success(`Locked as v${v.version_number}`);
+      setLockTarget(null);
+      setLockBy("");
+      setLockNote("");
+      refreshAll();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to lock version");
+    } finally {
+      setLockSubmitting(false);
+    }
+  };
+
+  const handleDecisionSubmit = async () => {
+    if (!decisionTarget || !decisionBy.trim()) {
+      toast.error("Reviewer name is required");
+      return;
+    }
+    setDecisionSubmitting(true);
+    try {
+      await decideChangeRequest({
+        requestId: decisionTarget.id,
+        decision: decisionType,
+        decidedBy: decisionBy.trim(),
+        note: decisionNote.trim() || null,
+        promoteToLocked: decisionType === "approved" && decisionPromote,
+        productKey: decisionTarget.product_key,
+        productName: decisionTarget.product_name,
+        newScanId: decisionTarget.new_scan_id,
+      });
+      toast.success(`Change ${decisionType}`);
+      setDecisionTarget(null);
+      setDecisionBy("");
+      setDecisionNote("");
+      refreshAll();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to record decision");
+    } finally {
+      setDecisionSubmitting(false);
     }
   };
 
@@ -111,6 +180,7 @@ const AdminLeadsPage = () => {
     if (session) {
       fetchClicks();
       fetchScans();
+      fetchRequests();
     }
   }, [session]);
 

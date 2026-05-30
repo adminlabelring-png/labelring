@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ScanLine } from "lucide-react";
 import { useScan, buildScanResult, generateMockResult } from "@/lib/scan-context";
 import { computeScanDiff, extractProductName, normalizeProductKey } from "@/lib/scan-diff";
+import { getCurrentLockedVersion, createChangeRequest } from "@/lib/version-lock";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -103,40 +104,81 @@ const ScanProcessingPage = () => {
         setProgress(100);
         setStepIndex(steps.length - 1);
 
-        // Persist scan + file (fire & forget)
-        (async () => {
-          try {
-            const ext = file.name.split(".").pop() ?? "bin";
-            const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
-            const { error: upErr } = await supabase.storage
-              .from("scans")
-              .upload(path, file, { contentType: file.type, upsert: false });
-            if (upErr) console.warn("scan upload failed", upErr);
+        result.productKey = productKey;
+        result.productName = productName;
 
-            const params = new URLSearchParams(window.location.search);
-            await supabase.from("scans" as any).insert({
-              file_name: file.name,
-              file_path: upErr ? null : path,
-              mime_type: file.type,
-              category: result.category,
-              found_count: result.foundCount,
-              total_count: result.totalCount,
-              needs_attention_count: result.needsAttentionCount,
-              fields: result.fields as any,
-              lead_id: params.get("lead"),
-              user_agent: navigator.userAgent,
-              referrer: document.referrer || null,
-              is_seasonal: options.isSeasonal,
-              season_tag: options.seasonTag,
-              product_name: productName,
-              product_key: productKey,
-              compared_to_scan_id: result.changes?.comparedToScanId ?? null,
-              changes_detected: result.changes ?? null,
-            });
-          } catch (e) {
-            console.warn("scan persist failed", e);
+        // Persist scan + file, then check locked version & create change request
+        try {
+          const ext = file.name.split(".").pop() ?? "bin";
+          const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("scans")
+            .upload(path, file, { contentType: file.type, upsert: false });
+          if (upErr) console.warn("scan upload failed", upErr);
+
+          const params = new URLSearchParams(window.location.search);
+          const { data: inserted } = await supabase.from("scans" as any).insert({
+            file_name: file.name,
+            file_path: upErr ? null : path,
+            mime_type: file.type,
+            category: result.category,
+            found_count: result.foundCount,
+            total_count: result.totalCount,
+            needs_attention_count: result.needsAttentionCount,
+            fields: result.fields as any,
+            lead_id: params.get("lead"),
+            user_agent: navigator.userAgent,
+            referrer: document.referrer || null,
+            is_seasonal: options.isSeasonal,
+            season_tag: options.seasonTag,
+            product_name: productName,
+            product_key: productKey,
+            compared_to_scan_id: result.changes?.comparedToScanId ?? null,
+            changes_detected: result.changes ?? null,
+          }).select("id").single();
+
+          const newScanId = (inserted as any)?.id ?? null;
+          result.scanId = newScanId;
+
+          // Check locked master version
+          if (productKey && newScanId) {
+            const locked = await getCurrentLockedVersion(productKey);
+            if (locked) {
+              result.lockedVersion = {
+                id: locked.id,
+                versionNumber: locked.version_number,
+                approvedAt: locked.approved_at,
+                approvedBy: locked.approved_by_name,
+              };
+              // diff vs locked version's scan
+              const { data: lockedScan } = await supabase
+                .from("scans" as any)
+                .select("id, created_at, fields")
+                .eq("id", locked.scan_id)
+                .maybeSingle();
+              if (lockedScan) {
+                const diff = computeScanDiff(
+                  { id: (lockedScan as any).id, created_at: (lockedScan as any).created_at, fields: (lockedScan as any).fields ?? [] },
+                  result.fields
+                );
+                if (diff.hasAnyChange) {
+                  const cr = await createChangeRequest({
+                    productKey,
+                    productName,
+                    newScanId,
+                    lockedVersionId: locked.id,
+                    changes: diff,
+                  });
+                  result.pendingChangeRequestId = cr?.id ?? null;
+                  // Surface locked-vs-new diff in results
+                  result.changes = diff;
+                }
+              }
+            }
           }
-        })();
+        } catch (e) {
+          console.warn("scan persist failed", e);
+        }
 
         setTimeout(() => {
           setResult(result);

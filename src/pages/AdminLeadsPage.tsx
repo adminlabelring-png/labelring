@@ -44,6 +44,24 @@ const AdminLeadsPage = () => {
   const [loadingScans, setLoadingScans] = useState(false);
   const [activeScan, setActiveScan] = useState<any | null>(null);
   const [scanFileUrl, setScanFileUrl] = useState<string | null>(null);
+  const [activeScanLocked, setActiveScanLocked] = useState<ProductVersion | null>(null);
+
+  const [pendingRequests, setPendingRequests] = useState<ChangeRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+
+  // Lock dialog
+  const [lockTarget, setLockTarget] = useState<any | null>(null);
+  const [lockBy, setLockBy] = useState("");
+  const [lockNote, setLockNote] = useState("");
+  const [lockSubmitting, setLockSubmitting] = useState(false);
+
+  // Decision dialog
+  const [decisionTarget, setDecisionTarget] = useState<ChangeRequest | null>(null);
+  const [decisionType, setDecisionType] = useState<"approved" | "rejected">("approved");
+  const [decisionBy, setDecisionBy] = useState("");
+  const [decisionNote, setDecisionNote] = useState("");
+  const [decisionPromote, setDecisionPromote] = useState(true);
+  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {

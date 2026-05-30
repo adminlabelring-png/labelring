@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Mail, ExternalLink, RefreshCw, FileImage, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { Mail, ExternalLink, RefreshCw, FileImage, CheckCircle, AlertTriangle, XCircle, Lock, History } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
+import { lockScanAsVersion, getPendingRequests, decideChangeRequest, getLockedVersionByScan, type ChangeRequest, type ProductVersion } from "@/lib/version-lock";
 
 interface LeadClick {
   id: string;
@@ -40,6 +44,24 @@ const AdminLeadsPage = () => {
   const [loadingScans, setLoadingScans] = useState(false);
   const [activeScan, setActiveScan] = useState<any | null>(null);
   const [scanFileUrl, setScanFileUrl] = useState<string | null>(null);
+  const [activeScanLocked, setActiveScanLocked] = useState<ProductVersion | null>(null);
+
+  const [pendingRequests, setPendingRequests] = useState<ChangeRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+
+  // Lock dialog
+  const [lockTarget, setLockTarget] = useState<any | null>(null);
+  const [lockBy, setLockBy] = useState("");
+  const [lockNote, setLockNote] = useState("");
+  const [lockSubmitting, setLockSubmitting] = useState(false);
+
+  // Decision dialog
+  const [decisionTarget, setDecisionTarget] = useState<ChangeRequest | null>(null);
+  const [decisionType, setDecisionType] = useState<"approved" | "rejected">("approved");
+  const [decisionBy, setDecisionBy] = useState("");
+  const [decisionNote, setDecisionNote] = useState("");
+  const [decisionPromote, setDecisionPromote] = useState(true);
+  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -77,11 +99,80 @@ const AdminLeadsPage = () => {
   const openScan = async (scan: any) => {
     setActiveScan(scan);
     setScanFileUrl(null);
+    setActiveScanLocked(null);
     if (scan.file_path) {
       const { data, error } = await supabase.storage
         .from("scans")
         .createSignedUrl(scan.file_path, 60 * 10);
       if (!error && data?.signedUrl) setScanFileUrl(data.signedUrl);
+    }
+    const locked = await getLockedVersionByScan(scan.id);
+    setActiveScanLocked(locked);
+  };
+
+  const fetchRequests = async () => {
+    setLoadingRequests(true);
+    const data = await getPendingRequests();
+    setPendingRequests(data);
+    setLoadingRequests(false);
+  };
+
+  const handleLockSubmit = async () => {
+    if (!lockTarget || !lockBy.trim()) {
+      toast.error("Reviewer name is required");
+      return;
+    }
+    if (!lockTarget.product_key) {
+      toast.error("This scan has no product name — cannot be locked");
+      return;
+    }
+    setLockSubmitting(true);
+    try {
+      const v = await lockScanAsVersion({
+        productKey: lockTarget.product_key,
+        productName: lockTarget.product_name,
+        scanId: lockTarget.id,
+        approvedBy: lockBy.trim(),
+        note: lockNote.trim() || null,
+      });
+      toast.success(`Locked as v${v.version_number}`);
+      setLockTarget(null);
+      setLockBy("");
+      setLockNote("");
+      refreshAll();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to lock version");
+    } finally {
+      setLockSubmitting(false);
+    }
+  };
+
+  const handleDecisionSubmit = async () => {
+    if (!decisionTarget || !decisionBy.trim()) {
+      toast.error("Reviewer name is required");
+      return;
+    }
+    setDecisionSubmitting(true);
+    try {
+      await decideChangeRequest({
+        requestId: decisionTarget.id,
+        decision: decisionType,
+        decidedBy: decisionBy.trim(),
+        note: decisionNote.trim() || null,
+        promoteToLocked: decisionType === "approved" && decisionPromote,
+        productKey: decisionTarget.product_key,
+        productName: decisionTarget.product_name,
+        newScanId: decisionTarget.new_scan_id,
+      });
+      toast.success(`Change ${decisionType}`);
+      setDecisionTarget(null);
+      setDecisionBy("");
+      setDecisionNote("");
+      refreshAll();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to record decision");
+    } finally {
+      setDecisionSubmitting(false);
     }
   };
 
@@ -89,6 +180,7 @@ const AdminLeadsPage = () => {
     if (session) {
       fetchClicks();
       fetchScans();
+      fetchRequests();
     }
   }, [session]);
 
@@ -170,6 +262,7 @@ const AdminLeadsPage = () => {
   const refreshAll = () => {
     fetchClicks();
     fetchScans();
+    fetchRequests();
   };
 
   return (
@@ -194,6 +287,9 @@ const AdminLeadsPage = () => {
         <TabsList>
           <TabsTrigger value="leads">Leads ({clicks.length})</TabsTrigger>
           <TabsTrigger value="scans">Scans ({scans.length})</TabsTrigger>
+          <TabsTrigger value="approvals">
+            Approvals {pendingRequests.length > 0 && <Badge className="ml-1.5 h-4 px-1 text-[10px]">{pendingRequests.length}</Badge>}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="leads" className="space-y-6">
@@ -331,7 +427,21 @@ const AdminLeadsPage = () => {
                           </div>
                         </td>
                         <td className="px-3 py-2">{s.lead_id ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs text-primary">View →</td>
+                        <td className="px-3 py-2 text-xs">
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            {s.product_key && (
+                              <>
+                                <Button size="sm" variant="ghost" className="h-7 px-2 gap-1 text-xs" onClick={() => setLockTarget(s)}>
+                                  <Lock className="h-3 w-3" /> Lock
+                                </Button>
+                                <Link to={`/admin/products/${encodeURIComponent(s.product_key)}`} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                                  <History className="h-3 w-3" /> History
+                                </Link>
+                              </>
+                            )}
+                            <button className="text-primary" onClick={() => openScan(s)}>View →</button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -347,7 +457,118 @@ const AdminLeadsPage = () => {
             </div>
           </Card>
         </TabsContent>
+
+        <TabsContent value="approvals" className="space-y-3">
+          {pendingRequests.length === 0 && !loadingRequests && (
+            <Card className="p-8 text-center text-sm text-muted-foreground">
+              No pending change requests. New scans that differ from a locked master will appear here.
+            </Card>
+          )}
+          {pendingRequests.map((r) => {
+            const changes = r.changes;
+            return (
+              <Card key={r.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="font-medium">{r.product_name ?? r.product_key}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Opened {new Date(r.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => { setDecisionTarget(r); setDecisionType("rejected"); setDecisionPromote(false); }}>
+                      <XCircle className="h-3 w-3 mr-1" /> Reject
+                    </Button>
+                    <Button size="sm" onClick={() => { setDecisionTarget(r); setDecisionType("approved"); setDecisionPromote(true); }}>
+                      <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                    </Button>
+                  </div>
+                </div>
+                {changes && (
+                  <div className="text-xs text-muted-foreground space-y-0.5 border-l-2 border-border pl-3">
+                    {changes.ingredientsAdded?.length > 0 && <p>+ Ingredients: {changes.ingredientsAdded.join(", ")}</p>}
+                    {changes.ingredientsRemoved?.length > 0 && <p>− Ingredients: {changes.ingredientsRemoved.join(", ")}</p>}
+                    {changes.allergensAdded?.length > 0 && <p>+ Allergens: {changes.allergensAdded.join(", ")}</p>}
+                    {changes.allergensRemoved?.length > 0 && <p>− Allergens: {changes.allergensRemoved.join(", ")}</p>}
+                    {changes.manufacturerChanged && <p>Mfr: {changes.manufacturerChanged.from ?? "—"} → {changes.manufacturerChanged.to ?? "—"}</p>}
+                    {changes.originChanged && <p>Origin: {changes.originChanged.from ?? "—"} → {changes.originChanged.to ?? "—"}</p>}
+                  </div>
+                )}
+                <Link to={`/admin/products/${encodeURIComponent(r.product_key)}`} className="text-xs text-primary inline-flex items-center gap-1">
+                  <History className="h-3 w-3" /> View product history
+                </Link>
+              </Card>
+            );
+          })}
+        </TabsContent>
       </Tabs>
+
+      {/* Lock dialog */}
+      <Dialog open={!!lockTarget} onOpenChange={(o) => !o && setLockTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lock as approved master</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              This will lock <strong>{lockTarget?.product_name ?? lockTarget?.file_name}</strong> as the approved master artwork. Any previously locked version will be archived automatically.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="lock-by">Reviewer name</Label>
+              <Input id="lock-by" value={lockBy} onChange={(e) => setLockBy(e.target.value)} placeholder="Jane Doe" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lock-note">Note (optional)</Label>
+              <Textarea id="lock-note" value={lockNote} onChange={(e) => setLockNote(e.target.value)} placeholder="Approved final artwork for Q1 launch" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLockTarget(null)}>Cancel</Button>
+            <Button onClick={handleLockSubmit} disabled={lockSubmitting}>
+              <Lock className="h-3 w-3 mr-1" /> Lock as master
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Decision dialog */}
+      <Dialog open={!!decisionTarget} onOpenChange={(o) => !o && setDecisionTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{decisionType === "approved" ? "Approve change" : "Reject change"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Product: <strong>{decisionTarget?.product_name ?? decisionTarget?.product_key}</strong>
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="dec-by">Reviewer name</Label>
+              <Input id="dec-by" value={decisionBy} onChange={(e) => setDecisionBy(e.target.value)} placeholder="Jane Doe" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dec-note">Decision note</Label>
+              <Textarea id="dec-note" value={decisionNote} onChange={(e) => setDecisionNote(e.target.value)} placeholder="Reason for approval / rejection" />
+            </div>
+            {decisionType === "approved" && (
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox checked={decisionPromote} onCheckedChange={(v) => setDecisionPromote(!!v)} />
+                <span>
+                  <strong>Re-lock new version as approved master</strong>
+                  <span className="block text-xs text-muted-foreground">Archives the current locked version automatically.</span>
+                </span>
+              </label>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDecisionTarget(null)}>Cancel</Button>
+            <Button onClick={handleDecisionSubmit} disabled={decisionSubmitting}
+              variant={decisionType === "rejected" ? "destructive" : "default"}>
+              {decisionType === "approved" ? "Approve" : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <Dialog open={!!activeScan} onOpenChange={(o) => !o && setActiveScan(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -373,7 +594,21 @@ const AdminLeadsPage = () => {
                     Change vs previous
                   </Badge>
                 )}
+                {activeScanLocked && (
+                  <Badge className="gap-1"><Lock className="h-3 w-3" /> Approved master v{activeScanLocked.version_number}</Badge>
+                )}
               </div>
+
+              {activeScan.product_key && (
+                <div className="flex gap-2 items-center">
+                  <Button size="sm" variant="outline" onClick={() => setLockTarget(activeScan)}>
+                    <Lock className="h-3 w-3 mr-1" /> Lock as approved master
+                  </Button>
+                  <Link to={`/admin/products/${encodeURIComponent(activeScan.product_key)}`} className="inline-flex items-center text-sm text-primary gap-1">
+                    <History className="h-3 w-3" /> Version history
+                  </Link>
+                </div>
+              )}
 
               {activeScan.changes_detected?.hasAnyChange && (
                 <div className="rounded border border-[hsl(var(--risk-high)/0.3)] bg-[hsl(var(--risk-high-bg))] p-3 text-xs space-y-1">

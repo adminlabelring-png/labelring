@@ -9,6 +9,7 @@ export interface DetectedField {
 }
 
 export interface ScanResult {
+  scanId?: string | null;
   fileName: string;
   category: string;
   fields: DetectedField[];
@@ -18,6 +19,17 @@ export interface ScanResult {
   isSeasonal?: boolean;
   seasonTag?: string | null;
   changes?: ScanChanges | null;
+  productKey?: string | null;
+  productName?: string | null;
+  lockedVersion?: {
+    id: string;
+    versionNumber: number;
+    approvedAt: string;
+    approvedBy: string | null;
+  } | null;
+  pendingChangeRequestId?: string | null;
+  isLockedMaster?: boolean;
+  lockedMasterVersionNumber?: number;
 }
 
 export interface ScanOptions {

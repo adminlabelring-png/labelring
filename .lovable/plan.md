@@ -1,54 +1,76 @@
-## Plan: Seasonal SKU Risk Mode + Supplier Change Detection
+## Plan: Version Lock & Approval Workflow
 
-Two new features integrated into the existing scan flow, fully functional with storage.
+Adds locked "approved" artwork versions per product, automatic archival, and a tracked approval audit trail. Demo mode — no auth gating; admin actions live in `/admin/leads`.
 
-### 1. Seasonal / Temporary SKU Risk Mode
-- **Upload page (`/scan`)**: Add a "Seasonal / Promo SKU" toggle (with optional season tag: Christmas, Diwali, Summer, Promo Pack, Limited Edition).
-- **AI prompt**: When seasonal flag is on, edge function injects stricter rules — extra scrutiny on promo claims, date stamps, allergen carry-over, on-pack offers, batch traceability.
-- **Results page**: Show a prominent amber "Seasonal Risk Mode" banner explaining heightened checks were applied.
-- **Storage**: Persist `is_seasonal` + `season_tag` on each scan.
+### Concept
 
-### 2. Supplier Change Detection
-- **Auto-match**: After AI extracts the product name, the system queries past scans with a fuzzy match on product name (lowercase trimmed similarity).
-- **Diff engine** (client-side): Compares ingredients, allergens, manufacturer/responsible person, country of origin between newest scan and the most recent prior scan of the same product.
-- **Results page**: New "Supplier & Spec Change Detection" card shows:
-  - "Compared against scan from [date]"
-  - Added ingredients (green), Removed ingredients (red), Allergen changes, Manufacturer changes
-  - If first scan → "Baseline saved — future scans will be compared against this."
-- **Admin (`/admin/leads` → Scans tab)**: Show seasonal badge + "Change detected" badge on scan rows.
+Every scan with the same `product_key` is a **version candidate** of that product. One version can be promoted to **Approved / Locked** = the master artwork. New scans of the same product are compared against the locked version; the diff becomes a pending **change request** that must be Approved or Rejected. Approving a change either re-locks the new version (auto-archiving the old) or just resolves the change request without changing the lock.
 
-### Technical details
+### Data model (new tables)
 
-**Database migration** — add columns to `scans`:
-- `is_seasonal boolean default false`
-- `season_tag text`
-- `product_name text` (extracted, indexed for matching)
-- `compared_to_scan_id uuid`
-- `changes_detected jsonb` (cached diff result)
+`product_versions` — one row per locked artwork
+- `product_key` (text, indexed)
+- `scan_id` (the scan that became the locked version)
+- `version_number` (auto-increment per product_key)
+- `status` ('approved' | 'archived')
+- `approved_by_name`, `approved_note`, `approved_at`
+- `archived_at`, `archived_reason`
 
-**Files to edit**:
-- `supabase/migrations/...` — schema changes
-- `supabase/functions/analyze-label/index.ts` — accept `isSeasonal`/`seasonTag`, inject seasonal rules into prompt
-- `src/lib/scan-context.tsx` — add seasonal flag + comparison result to context
-- `src/pages/ScanUploadPage.tsx` — seasonal toggle + season tag selector
-- `src/pages/ScanProcessingPage.tsx` — pass seasonal flag, after AI returns, query prior scan, compute diff, store everything
-- `src/pages/ScanResultsPage.tsx` — seasonal banner + supplier-change card
-- `src/pages/AdminLeadsPage.tsx` — seasonal/change badges in Scans tab
-- New: `src/lib/scan-diff.ts` — pure diff utility
+`change_requests` — one row per scan that differs from current locked version
+- `product_key`
+- `new_scan_id`, `locked_version_id`
+- `changes` (jsonb — reuse `scan-diff` output)
+- `status` ('pending' | 'approved' | 'rejected')
+- `decided_by_name`, `decision_note`, `decided_at`
+- `promote_to_locked` (bool — true if approval re-locks new version)
 
-**Diff logic** (client-side, no extra edge function):
-- Normalize ingredient strings → split on commas → lowercase trim → set diff
-- Manufacturer/Country: direct string compare
-- Allergens: set diff
+Both tables: anon insert + read (demo mode), service_role full.
 
-```text
-Upload (seasonal? prior product?) 
-   ↓
-Processing → AI (stricter if seasonal) → fetch prior scan by product name → diff → save scan w/ changes
-   ↓
-Results: [Seasonal banner] [Supplier-change card] [existing fields]
-```
+### Flows
 
-### Out of scope (deferred per image)
-- Version Lock + Approval Workflow (feature #3)
-- Peak season dashboard (just badges in admin for now)
+**Lock a version (admin → /admin/leads → Scans tab)**
+- New "Lock as approved" button on a scan row. Prompts reviewer name + note. Creates `product_versions` row (version_number = max+1 for that product_key). If a previously locked version exists, mark it `archived` with reason "Superseded by v{n}".
+
+**Auto-archive**
+- Trigger / app logic: only one `status='approved'` row per `product_key` at a time. On new lock, previous approved row → `archived` automatically with timestamp.
+
+**Scan comparison vs locked version**
+- `ScanProcessingPage` already finds prior scan by product_key. Extend: also fetch the current **locked** version for the product_key. If exists and diff is non-empty → insert a `change_requests` row (status='pending').
+
+**Results page**
+- If scan is the locked version → green "Approved master artwork (v{n})" badge.
+- If scan has a pending change request → amber "Pending approval — differs from locked v{n}" card with the diff and a "Review in admin" link.
+- If no locked version exists for this product → "No approved master yet. Lock this scan as the master to enable change tracking."
+
+**Admin: /admin/leads → new "Approvals" tab**
+- Lists pending change requests with product name, version locked against, diff summary, scan thumbnail.
+- Each row: Approve (with option "Re-lock new version as v{n+1}") / Reject. Both require reviewer name + note.
+- On approve+relock → archive prior locked, insert new locked version, update change_request.
+- On approve (no relock) → just resolves the request, keeps current lock.
+- On reject → change_request status='rejected' with note.
+
+**Admin: per-product Version History timeline**
+- New page `/admin/products/:productKey` linked from any scan/version row.
+- Vertical timeline: every version (approved/archived) + every change request (approved/rejected/pending) in chronological order. Shows reviewer, note, timestamp, version number, status badge.
+
+### Files
+
+New:
+- `supabase/migrations/...` — `product_versions`, `change_requests` tables + GRANTs + RLS + trigger to enforce single-approved-per-product_key
+- `src/lib/version-lock.ts` — helpers: `lockVersion`, `getCurrentLocked`, `createChangeRequest`, `approveChangeRequest`, `rejectChangeRequest`, `getVersionHistory`
+- `src/pages/ProductHistoryPage.tsx` — timeline view
+- `src/components/VersionLockBadge.tsx`, `src/components/ApprovalDialog.tsx`
+
+Edited:
+- `src/pages/ScanProcessingPage.tsx` — after diff, fetch current locked & create change_request if differs
+- `src/pages/ScanResultsPage.tsx` — locked / pending / no-master banner
+- `src/pages/AdminLeadsPage.tsx` — "Lock as approved" action, new "Approvals" tab, link to product history
+- `src/App.tsx` — route for `/admin/products/:productKey`
+- `src/integrations/supabase/types.ts` — regenerated by migration
+
+### Out of scope (deferred)
+
+- Real auth — demo mode uses a reviewer-name text input
+- Email notifications on pending approvals
+- Bulk approve / revert-to-prior-version
+- File-level (image) artwork upload separate from scans

@@ -10,6 +10,7 @@ import ScanUploadPage from "@/pages/ScanUploadPage";
 import ScanProcessingPage from "@/pages/ScanProcessingPage";
 import ScanResultsPage from "@/pages/ScanResultsPage";
 import AdminLeadsPage from "@/pages/AdminLeadsPage";
+import ProductHistoryPage from "@/pages/ProductHistoryPage";
 import NotFound from "@/pages/NotFound";
 import { LeadTracker } from "@/lib/lead-tracker";
 
@@ -30,6 +31,7 @@ const App = () => (
               <Route path="/scan/processing" element={<ScanProcessingPage />} />
               <Route path="/scan/results" element={<ScanResultsPage />} />
               <Route path="/admin/leads" element={<AdminLeadsPage />} />
+              <Route path="/admin/products/:productKey" element={<ProductHistoryPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

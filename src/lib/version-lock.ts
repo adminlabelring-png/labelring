@@ -47,7 +47,7 @@ export const getCurrentLockedVersion = async (
     console.warn("getCurrentLockedVersion", error);
     return null;
   }
-  return (data as ProductVersion | null) ?? null;
+  return (data as unknown as ProductVersion | null) ?? null;
 };
 
 export const getNextVersionNumber = async (productKey: string): Promise<number> => {
@@ -100,7 +100,7 @@ export const lockScanAsVersion = async (params: {
     .single();
 
   if (error) throw error;
-  return data as ProductVersion;
+  return data as unknown as ProductVersion;
 };
 
 export const createChangeRequest = async (params: {
@@ -126,7 +126,7 @@ export const createChangeRequest = async (params: {
     console.warn("createChangeRequest", error);
     return null;
   }
-  return data as ChangeRequest;
+  return data as unknown as ChangeRequest;
 };
 
 export const decideChangeRequest = async (params: {
@@ -169,8 +169,8 @@ export const getVersionHistory = async (productKey: string) => {
     supabase.from(REQUESTS).select("*").eq("product_key", productKey).order("created_at", { ascending: false }),
   ]);
   return {
-    versions: (versions.data as ProductVersion[]) ?? [],
-    requests: (requests.data as ChangeRequest[]) ?? [],
+    versions: (versions.data as unknown as ProductVersion[]) ?? [],
+    requests: (requests.data as unknown as ChangeRequest[]) ?? [],
   };
 };
 
@@ -180,7 +180,7 @@ export const getPendingRequests = async (): Promise<ChangeRequest[]> => {
     .select("*")
     .eq("status", "pending")
     .order("created_at", { ascending: false });
-  return (data as ChangeRequest[]) ?? [];
+  return (data as unknown as ChangeRequest[]) ?? [];
 };
 
 export const getLockedVersionByScan = async (scanId: string): Promise<ProductVersion | null> => {
@@ -190,5 +190,5 @@ export const getLockedVersionByScan = async (scanId: string): Promise<ProductVer
     .eq("scan_id", scanId)
     .eq("status", "approved")
     .maybeSingle();
-  return (data as ProductVersion | null) ?? null;
+  return (data as unknown as ProductVersion | null) ?? null;
 };

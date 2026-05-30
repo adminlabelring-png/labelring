@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      change_requests: {
+        Row: {
+          changes: Json | null
+          created_at: string
+          decided_at: string | null
+          decided_by_name: string | null
+          decision_note: string | null
+          id: string
+          locked_version_id: string | null
+          new_scan_id: string
+          product_key: string
+          product_name: string | null
+          promote_to_locked: boolean | null
+          status: string
+        }
+        Insert: {
+          changes?: Json | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by_name?: string | null
+          decision_note?: string | null
+          id?: string
+          locked_version_id?: string | null
+          new_scan_id: string
+          product_key: string
+          product_name?: string | null
+          promote_to_locked?: boolean | null
+          status?: string
+        }
+        Update: {
+          changes?: Json | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by_name?: string | null
+          decision_note?: string | null
+          id?: string
+          locked_version_id?: string | null
+          new_scan_id?: string
+          product_key?: string
+          product_name?: string | null
+          promote_to_locked?: boolean | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "change_requests_locked_version_id_fkey"
+            columns: ["locked_version_id"]
+            isOneToOne: false
+            referencedRelation: "product_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_clicks: {
         Row: {
           created_at: string
@@ -56,6 +109,51 @@ export type Database = {
           utm_medium?: string | null
           utm_source?: string | null
           utm_term?: string | null
+        }
+        Relationships: []
+      }
+      product_versions: {
+        Row: {
+          approved_at: string
+          approved_by_name: string | null
+          approved_note: string | null
+          archived_at: string | null
+          archived_reason: string | null
+          created_at: string
+          id: string
+          product_key: string
+          product_name: string | null
+          scan_id: string
+          status: string
+          version_number: number
+        }
+        Insert: {
+          approved_at?: string
+          approved_by_name?: string | null
+          approved_note?: string | null
+          archived_at?: string | null
+          archived_reason?: string | null
+          created_at?: string
+          id?: string
+          product_key: string
+          product_name?: string | null
+          scan_id: string
+          status?: string
+          version_number: number
+        }
+        Update: {
+          approved_at?: string
+          approved_by_name?: string | null
+          approved_note?: string | null
+          archived_at?: string | null
+          archived_reason?: string | null
+          created_at?: string
+          id?: string
+          product_key?: string
+          product_name?: string | null
+          scan_id?: string
+          status?: string
+          version_number?: number
         }
         Relationships: []
       }

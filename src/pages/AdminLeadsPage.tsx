@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Mail, ExternalLink, RefreshCw, FileImage, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { Mail, ExternalLink, RefreshCw, FileImage, CheckCircle, AlertTriangle, XCircle, Lock, History } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
+import { lockScanAsVersion, getPendingRequests, decideChangeRequest, getLockedVersionByScan, type ChangeRequest, type ProductVersion } from "@/lib/version-lock";
 
 interface LeadClick {
   id: string;

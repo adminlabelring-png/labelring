@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw, Info, Sparkles, GitCompare, Plus, Minus, Building2, Globe } from "lucide-react";
+import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw, Info, Sparkles, GitCompare, Plus, Minus, Building2, Globe, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useScan, DetectedField } from "@/lib/scan-context";
 import { generateComplianceReport } from "@/lib/generate-report";
@@ -64,7 +64,48 @@ const ScanResultsPage = () => {
         </p>
       </motion.div>
 
-      {/* Seasonal risk banner */}
+      {/* Version lock / approval banner */}
+      {result.pendingChangeRequestId && result.lockedVersion && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg border-2 border-[hsl(var(--risk-medium)/0.5)] bg-[hsl(var(--risk-medium-bg))] p-4 flex gap-3">
+          <ShieldAlert className="h-5 w-5 text-[hsl(var(--risk-medium))] shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-[hsl(var(--risk-medium))]">
+              Pending approval — differs from locked v{result.lockedVersion.versionNumber}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              This scan does not match the approved master artwork. A change request has been opened. An admin must approve or reject it in the Approvals dashboard before this version can be used in production.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {result.lockedVersion && !result.pendingChangeRequestId && result.productKey && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg border-2 border-[hsl(var(--risk-low)/0.4)] bg-[hsl(var(--risk-low-bg))] p-4 flex gap-3">
+          <ShieldCheck className="h-5 w-5 text-[hsl(var(--risk-low))] shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-[hsl(var(--risk-low))]">
+              Matches approved master artwork (v{result.lockedVersion.versionNumber})
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              No differences detected against the locked version approved {new Date(result.lockedVersion.approvedAt).toLocaleDateString()}{result.lockedVersion.approvedBy ? ` by ${result.lockedVersion.approvedBy}` : ""}.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {!result.lockedVersion && result.productKey && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg border bg-card p-3 flex gap-3 items-start">
+          <Lock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground">
+            <strong className="text-foreground">No approved master yet.</strong> Lock this scan as the master in the admin dashboard to enable change tracking and approval workflow.
+          </p>
+        </motion.div>
+      )}
+
+
       {result.isSeasonal && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}

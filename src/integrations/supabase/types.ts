@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      brands: {
+        Row: {
+          created_at: string
+          default_market: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          slug: string
+          vertical: string
+        }
+        Insert: {
+          created_at?: string
+          default_market?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          slug: string
+          vertical?: string
+        }
+        Update: {
+          created_at?: string
+          default_market?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          vertical?: string
+        }
+        Relationships: []
+      }
       change_requests: {
         Row: {
           changes: Json | null
@@ -157,6 +187,81 @@ export type Database = {
         }
         Relationships: []
       }
+      products: {
+        Row: {
+          brand_id: string
+          category: string | null
+          created_at: string
+          id: string
+          is_seasonal: boolean
+          label_status: string
+          label_types: string[]
+          label_version: string | null
+          launch_date: string | null
+          material_data: Json
+          name: string
+          product_key: string
+          season_tag: string | null
+          sku: string | null
+          supplier_id: string | null
+          thumbnail: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_seasonal?: boolean
+          label_status?: string
+          label_types?: string[]
+          label_version?: string | null
+          launch_date?: string | null
+          material_data?: Json
+          name: string
+          product_key: string
+          season_tag?: string | null
+          sku?: string | null
+          supplier_id?: string | null
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_seasonal?: boolean
+          label_status?: string
+          label_types?: string[]
+          label_version?: string | null
+          launch_date?: string | null
+          material_data?: Json
+          name?: string
+          product_key?: string
+          season_tag?: string | null
+          sku?: string | null
+          supplier_id?: string | null
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scans: {
         Row: {
           category: string | null
@@ -225,6 +330,47 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: []
+      }
+      suppliers: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          last_activity_at: string
+          name: string
+          notes: string | null
+          verification_score: number
+          verification_status: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          last_activity_at?: string
+          name: string
+          notes?: string | null
+          verification_score?: number
+          verification_status?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          last_activity_at?: string
+          name?: string
+          notes?: string | null
+          verification_score?: number
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

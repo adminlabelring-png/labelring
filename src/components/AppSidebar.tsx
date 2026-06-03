@@ -1,9 +1,10 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, ScanLine, CircleDot } from "lucide-react";
+import { Home, ScanLine, CircleDot, LayoutDashboard } from "lucide-react";
 
 const navItems = [
   { to: "/", icon: Home, label: "Home" },
   { to: "/scan", icon: ScanLine, label: "Scan Label" },
+  { to: "/workspace", icon: LayoutDashboard, label: "Workspace" },
 ];
 
 interface AppSidebarProps {

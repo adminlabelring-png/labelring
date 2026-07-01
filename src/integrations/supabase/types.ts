@@ -97,6 +97,63 @@ export type Database = {
           },
         ]
       }
+      generated_labels: {
+        Row: {
+          allergens: string | null
+          batch_number: string | null
+          best_before: string | null
+          brand_name: string | null
+          category: string | null
+          certifications: string | null
+          compliance_score: number
+          country_of_origin: string | null
+          created_at: string
+          id: string
+          ingredients: string | null
+          lead_id: string | null
+          net_quantity: string | null
+          preview_text: string | null
+          product_name: string | null
+          responsible_person: string | null
+        }
+        Insert: {
+          allergens?: string | null
+          batch_number?: string | null
+          best_before?: string | null
+          brand_name?: string | null
+          category?: string | null
+          certifications?: string | null
+          compliance_score?: number
+          country_of_origin?: string | null
+          created_at?: string
+          id?: string
+          ingredients?: string | null
+          lead_id?: string | null
+          net_quantity?: string | null
+          preview_text?: string | null
+          product_name?: string | null
+          responsible_person?: string | null
+        }
+        Update: {
+          allergens?: string | null
+          batch_number?: string | null
+          best_before?: string | null
+          brand_name?: string | null
+          category?: string | null
+          certifications?: string | null
+          compliance_score?: number
+          country_of_origin?: string | null
+          created_at?: string
+          id?: string
+          ingredients?: string | null
+          lead_id?: string | null
+          net_quantity?: string | null
+          preview_text?: string | null
+          product_name?: string | null
+          responsible_person?: string | null
+        }
+        Relationships: []
+      }
       lead_clicks: {
         Row: {
           created_at: string

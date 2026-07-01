@@ -1,87 +1,69 @@
-# Workspace Dashboard Rebuild
+# Label Generator — Plan
 
-Build a multi-brand workspace dashboard inspired by the mockup, **without** replacing the existing scan funnel or switching the theme. Jewelry is added as a third vertical alongside Skincare and Food. Auth stays demo-mode (no login).
+Add a new public page `/generate` (linked in the sidebar below "Scan Label") that lets anyone build a compliant product label from scratch, with AI assistance, a live preview, live compliance scoring, and real Save/Export/QR actions backed by Lovable Cloud.
 
-## What changes vs the mockup
+## Layout (matches uploaded reference, adapted to our slate/green-amber-red design tokens — no purple)
 
-- **Theme**: keep current slate / semantic-risk tokens. Do NOT introduce `#534AB7` purple. Map the mockup's purple → existing `--primary`, purple-tint surfaces → `--accent` / `--muted`.
-- **Brand switcher**: works in demo mode by switching a `brand_id` in localStorage; no per-user auth.
-- **Jewelry**: added as a category. Jewelry-specific compliance rules (REACH nickel, UK hallmarking, DPP material data) are stubbed with realistic seed data but reuse the existing scan/version-lock pipeline.
-
-## Information architecture
-
-New shell at `/workspace` (the existing scan funnel at `/`, `/scan`, `/scan/results`, and `/admin/*` stay untouched). Sidebar groups:
-
-```text
-Workspace
-  /workspace                  Dashboard
-  /workspace/labels           Label library
-  /workspace/products         Product data
-  /workspace/compliance       Compliance
-Monitoring
-  /workspace/suppliers        Suppliers
-  /workspace/seasonal         Seasonal SKUs
-  /workspace/versions         Version history (cross-product list)
-  /workspace/dpp              Digital passport
-Settings
-  /workspace/team             Team (stub)
-  /workspace/settings         Settings (brand profile)
+```
+┌─ Header: LABELRING logo · "Compliance score: 72%" ──────────┐
+│ ┌── LEFT (form) ─────────┐  ┌── RIGHT (preview) ─────────┐  │
+│ │ PRODUCT DETAILS         │  │ LIVE DIGITAL LABEL          │ │
+│ │  Brand name       [✨] │  │  (rendered on-pack block:   │ │
+│ │  Product name / Category│  │   name, ingredients, warn., │ │
+│ │ INGREDIENTS & ALLERGENS │  │   allergens, quantity,      │ │
+│ │  Ingredients      [✨] │  │   responsible person, batch,│ │
+│ │  Allergens        [✨] │  │   best-before, origin, certs)│ │
+│ │ ORIGIN & COMPLIANCE     │  │                             │ │
+│ │  Country / Net quantity │  │ COMPLIANCE CHECK            │ │
+│ │  Batch / Best before    │  │  ● Product identity   OK    │ │
+│ │  Responsible person (UK)│  │  ● Ingredients decl.  Miss. │ │
+│ │  Certifications    [✨] │  │  ● Allergens flagged  OK    │ │
+│ └────────────────────────┘  │  ● Country of origin  OK    │ │
+│                             │  ● Quantity declared  Miss. │ │
+│                             │  ● Responsible person OK    │ │
+│                             │  ● Batch traceability OK    │ │
+│                             │ [Copy QR link][Export][Share]│ │
+│                             └─────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-The existing admin routes (`/admin/leads`, `/admin/products/:productKey`) are kept and linked from the new pages so prior work (approvals, version timeline) is reused, not duplicated.
+Mobile: preview collapses under form; sticky bottom bar shows score + primary action.
 
-## Pages
+## Fields (all from screenshot)
+Brand name, Product name, Category (Skincare / Food / Beverage / Supplement / Household / Other), Ingredients, Allergens, Country of origin, Net quantity, Batch number, Best before, Responsible person (UK), Certifications.
 
-1. **Dashboard** — mirrors the mockup: header with brand name + active SKU count, DPP readiness banner (jewelry brands only), 4 metric tiles (Total labels, Approved, Flagged, In review), Label Library table preview (5 rows + "View all"), two-column Compliance Alerts + Supplier Monitoring.
-2. **Label library** — full table with tabs (All / Analog / Digital / Archived), search, filter by status. Rows link to existing `ProductHistoryPage`.
-3. **Product data** — list of products (SKU, name, category, supplier, last scan). Click → product detail with material composition fields (jewelry-only: metal, alloy %, stones, nickel ppm).
-4. **Compliance** — feed of alerts (REACH, hallmarking, seasonal expiry, ingredient flags, missing fields). Uses existing `scans.fields` + jewelry rule engine.
-5. **Suppliers** — list with verification %, status (Verified / Spec change / Flagged), last activity. Each row → supplier detail with linked products + spec-change history (reuses `scan-diff` data).
-6. **Seasonal SKUs** — list filtered to `is_seasonal=true`, with launch date and approval status.
-7. **Version history** — cross-product list of `product_versions` + `change_requests` (existing per-product page becomes the detail view).
-8. **Digital passport** — readiness checklist per SKU (material data complete? supplier verified? hallmark declared?). Generates a stub QR/JSON preview.
-9. **Team** + **Settings** — minimal stubs (Settings holds brand name, logo, default market).
+## AI behavior (via `generate-label` edge function, model `google/gemini-3-flash-preview`)
+- Per-field ✨ button → `POST /generate-label { mode: "field", field, context: {all current fields} }` returns a single suggestion for that field. Category-aware (skincare vs food prompts differ).
+- Preview generator → `POST /generate-label { mode: "preview", fields }` returns the composed on-pack copy block (product name headline, ingredients line "Ingredients: ...", allergen callout, quantity, RP address block, batch/BB line, origin, cert icons list).
+- Debounced 800ms after any field change; loading shimmer in preview card.
 
-## Data model
+## Live compliance scoring (client-side, no AI)
+- 7 rules: product identity, ingredients declared, allergens flagged (present OR explicit "None"), country of origin, quantity declared (must contain a unit), responsible person (must have address), batch traceability.
+- Score = passed / 7 · 100, rounded. Header pill updates live; each item in Compliance Check shows OK / Missing / Needs review.
 
-Add three tables; reuse existing `scans`, `product_versions`, `change_requests`.
+## Actions (all working, persisted)
+- **Export label**: client-side jsPDF using existing `generate-report.ts` pattern; downloads `<product>-label.pdf` with the live preview block.
+- **Copy QR link**: saves the label row, generates `/label/:id` public view URL, copies to clipboard, and shows QR (using `qrcode` — add via `bun add qrcode`).
+- **Share**: `navigator.share` when available, else copies link + toast.
+- New public view route `/label/:id` renders the saved live label read-only.
 
-- `brands` — `id`, `name`, `slug`, `vertical` ('skincare' | 'food' | 'jewelry'), `logo_url`, `default_market`, `active_sku_count` (computed in app).
-- `products` — `id`, `brand_id` → brands, `product_key` (matches existing `scans.product_key`), `name`, `sku`, `category`, `supplier_id` (nullable), `material_data` jsonb (jewelry composition), `is_seasonal`, `season_tag`, `launch_date`.
-- `suppliers` — `id`, `brand_id`, `name`, `verification_status` ('verified' | 'spec_change' | 'flagged'), `verification_score` int 0–100, `last_activity_at`, `notes`.
+## Backend
 
-Backfill: a one-time SQL seed inserts one demo brand per vertical (Skincare "GlowLab", Food "Pantry Co.", Jewelry "Aurelia Jewels") with 4–6 products and 3–4 suppliers each. Existing scans without a `brand_id` stay attached to "GlowLab" by default.
+New table `generated_labels`:
+- `brand_name`, `product_name`, `category`, `ingredients`, `allergens`, `country_of_origin`, `net_quantity`, `batch_number`, `best_before`, `responsible_person`, `certifications` (all text/text[]), `compliance_score` int, `lead_id` text nullable (reuse lead tracker), plus id/created_at.
+- RLS: anon INSERT allowed (public funnel), anon SELECT allowed (public share links), no update/delete for anon; service_role full.
+- GRANT SELECT, INSERT to anon; GRANT ALL to service_role.
 
-All three tables follow the established demo-mode RLS: `SELECT` / `INSERT` / `UPDATE` open to `public`, no `DELETE`. GRANTs to `anon`, `authenticated`, `service_role`.
+New edge function `generate-label` (verify_jwt=false, CORS) with two modes above, returning JSON.
 
-## Brand switcher
+## Sidebar / routing
+- `AppSidebar`: add "Generate Label" item (icon: `Wand2`) under "Scan Label", route `/generate`.
+- `App.tsx`: add `/generate` → `GenerateLabelPage`, `/label/:id` → `PublicLabelPage`.
 
-- `BrandProvider` in `src/lib/brand-context.tsx` — loads brands from Supabase, persists active `brand_id` in localStorage, exposes `{ brand, brands, switchBrand }`.
-- Nav uses `<Popover>` with brand list + "Aurelia Jewels"-style colored dot (color derived from vertical, not new palette).
-- All workspace queries filter by `brand.id`.
+## Files
+- New: `src/pages/GenerateLabelPage.tsx`, `src/pages/PublicLabelPage.tsx`, `src/components/generator/LivePreview.tsx`, `src/components/generator/ComplianceCheck.tsx`, `src/lib/label-rules.ts`, `src/lib/generate-label.ts` (client wrapper), `supabase/functions/generate-label/index.ts`.
+- Edit: `src/components/AppSidebar.tsx`, `src/App.tsx`.
+- Migration: create `generated_labels` table + policies + grants.
 
-## Component reuse
-
-- Sidebar: extend existing `AppSidebar` with a `variant` prop. The scan funnel keeps current sidebar; `/workspace/*` uses the new grouped sidebar variant. Both share `SidebarProvider`.
-- Status badges: use existing `StatusBadge` + `RiskBadge` with new variants (`approved`, `in_review`, `flagged`, `archived`).
-- Tables: shadcn `Table` + reusable `<DataTableTabs>` for the All/Analog/Digital/Archived filter row.
-- Alerts feed: reuses card patterns from `ScanResultsPage` banners.
-
-## Out of scope (deferred)
-
-- Real auth / per-user roles.
-- Editing material composition or supplier records (read-only views, seed only).
-- Generating a real DPP QR (preview placeholder only).
-- Team invites, billing, notifications.
-- Migrating the scan funnel into the workspace shell — the funnel stays separate.
-
-## Build order
-
-1. Migration: `brands`, `products`, `suppliers` + seed data.
-2. `BrandProvider` + brand switcher + new `WorkspaceLayout`/sidebar variant + routes.
-3. Dashboard page (highest-fidelity to mockup).
-4. Label library, Suppliers, Compliance (reuse existing data).
-5. Product data, Seasonal SKUs, Version history (cross-product), DPP readiness.
-6. Team + Settings stubs.
-
-After approval I'll start with the migration so the seed is available before the UI work.
+## Out of scope
+Auth, versioning of generated labels, workspace integration, multi-language, real regulatory validation (still keep the disclaimer used in scan flow).

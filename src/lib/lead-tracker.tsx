@@ -16,6 +16,13 @@ const alreadyTracked = (key: string): boolean => {
   }
 };
 
+/** Returns the current lead/ref id from the URL, if any. */
+export const getLeadId = (): string | null => {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("lead") || params.get("ref") || null;
+};
+
 /**
  * Tracks email/campaign visits. Triggered when URL contains any of:
  * ?lead=, ?utm_source=, ?utm_campaign=, ?ref=

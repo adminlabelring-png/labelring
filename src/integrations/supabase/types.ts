@@ -99,6 +99,7 @@ export type Database = {
       }
       generated_labels: {
         Row: {
+          alcohol_abv: number | null
           allergens: string | null
           batch_number: string | null
           best_before: string | null
@@ -108,15 +109,25 @@ export type Database = {
           compliance_score: number
           country_of_origin: string | null
           created_at: string
+          date_type: string | null
           id: string
           ingredients: string | null
+          irradiated: boolean | null
           lead_id: string | null
+          nano: boolean | null
           net_quantity: string | null
+          nutrition_json: Json | null
+          pack: string | null
+          packaged_protective_atmosphere: boolean | null
           preview_text: string | null
           product_name: string | null
+          quid_percent: string | null
           responsible_person: string | null
+          storage_instructions: string | null
+          warnings_json: Json | null
         }
         Insert: {
+          alcohol_abv?: number | null
           allergens?: string | null
           batch_number?: string | null
           best_before?: string | null
@@ -126,15 +137,25 @@ export type Database = {
           compliance_score?: number
           country_of_origin?: string | null
           created_at?: string
+          date_type?: string | null
           id?: string
           ingredients?: string | null
+          irradiated?: boolean | null
           lead_id?: string | null
+          nano?: boolean | null
           net_quantity?: string | null
+          nutrition_json?: Json | null
+          pack?: string | null
+          packaged_protective_atmosphere?: boolean | null
           preview_text?: string | null
           product_name?: string | null
+          quid_percent?: string | null
           responsible_person?: string | null
+          storage_instructions?: string | null
+          warnings_json?: Json | null
         }
         Update: {
+          alcohol_abv?: number | null
           allergens?: string | null
           batch_number?: string | null
           best_before?: string | null
@@ -144,13 +165,22 @@ export type Database = {
           compliance_score?: number
           country_of_origin?: string | null
           created_at?: string
+          date_type?: string | null
           id?: string
           ingredients?: string | null
+          irradiated?: boolean | null
           lead_id?: string | null
+          nano?: boolean | null
           net_quantity?: string | null
+          nutrition_json?: Json | null
+          pack?: string | null
+          packaged_protective_atmosphere?: boolean | null
           preview_text?: string | null
           product_name?: string | null
+          quid_percent?: string | null
           responsible_person?: string | null
+          storage_instructions?: string | null
+          warnings_json?: Json | null
         }
         Relationships: []
       }

@@ -186,7 +186,7 @@ const GenerateLabelPage = () => {
           quid_percent: fields.quidPercent || null,
           nutrition_json: Object.keys(fields.nutrition).length ? fields.nutrition : null,
           alcohol_abv: fields.alcoholAbv ? parseFloat(fields.alcoholAbv) : null,
-          warnings_json: derivedWarnings.length ? derivedWarnings : null,
+          warnings_json: (derivedWarnings.length ? derivedWarnings : null) as unknown as never,
           packaged_protective_atmosphere: fields.packagedProtectiveAtmosphere,
           nano: fields.nano,
           irradiated: fields.irradiated,

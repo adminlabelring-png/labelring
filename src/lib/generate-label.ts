@@ -1,12 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { LabelFields } from "./label-rules";
+import type { LabelFields, Pack } from "./label-rules";
 
 export async function suggestField(
-  field: keyof LabelFields,
-  fields: LabelFields
+  field: keyof LabelFields | "nutrition",
+  fields: LabelFields,
+  pack: Pack
 ): Promise<string> {
   const { data, error } = await supabase.functions.invoke("generate-label", {
-    body: { mode: "field", field, fields },
+    body: { mode: "field", field, fields, pack },
   });
   if (error) throw error;
   const value = (data as { value?: string })?.value;
@@ -14,9 +15,12 @@ export async function suggestField(
   return value;
 }
 
-export async function generatePreview(fields: LabelFields): Promise<string> {
+export async function generatePreview(
+  fields: LabelFields,
+  pack: Pack
+): Promise<string> {
   const { data, error } = await supabase.functions.invoke("generate-label", {
-    body: { mode: "preview", fields },
+    body: { mode: "preview", fields, pack },
   });
   if (error) throw error;
   return (data as { preview?: string })?.preview ?? "";

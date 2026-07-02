@@ -308,7 +308,7 @@ const GenerateLabelPage = () => {
                     onChange={(e) => set("productName", e.target.value)}
                   />
                 )}
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0">
                   <Label htmlFor="category" className="text-xs font-medium">
                     Category
                   </Label>

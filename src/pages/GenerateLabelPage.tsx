@@ -240,9 +240,9 @@ const GenerateLabelPage = () => {
 
   // Field row with optional AI suggest button
   const withSuggest = (field: keyof LabelFields, node: React.ReactNode) => (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <Label htmlFor={field} className="text-xs font-medium">
+    <div className="space-y-1.5 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={field} className="text-xs font-medium truncate min-w-0">
           {FIELD_LABELS[field]}
         </Label>
         {AI_FIELDS.includes(field) && (
@@ -250,7 +250,7 @@ const GenerateLabelPage = () => {
             type="button"
             onClick={() => handleSuggest(field)}
             disabled={busyField === field}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+            className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
           >
             {busyField === field ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -281,7 +281,7 @@ const GenerateLabelPage = () => {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr,420px]">
+      <div className="grid gap-6 xl:grid-cols-[1fr,400px]">
         {/* LEFT: form */}
         <div className="space-y-6">
           <section className="rounded-lg border bg-card p-5">
@@ -298,7 +298,7 @@ const GenerateLabelPage = () => {
                   onChange={(e) => set("brandName", e.target.value)}
                 />
               )}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {withSuggest(
                   "productName",
                   <Input
@@ -308,7 +308,7 @@ const GenerateLabelPage = () => {
                     onChange={(e) => set("productName", e.target.value)}
                   />
                 )}
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0">
                   <Label htmlFor="category" className="text-xs font-medium">
                     Category
                   </Label>
@@ -361,7 +361,7 @@ const GenerateLabelPage = () => {
               Origin & compliance
             </h2>
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {withSuggest(
                   "countryOfOrigin",
                   <Input
@@ -381,7 +381,7 @@ const GenerateLabelPage = () => {
                   />
                 )}
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {withSuggest(
                   "batchNumber",
                   <Input
@@ -424,7 +424,7 @@ const GenerateLabelPage = () => {
         </div>
 
         {/* RIGHT: preview + compliance + actions */}
-        <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
+        <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
           <section>
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Live digital label

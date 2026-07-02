@@ -424,7 +424,7 @@ const GenerateLabelPage = () => {
         </div>
 
         {/* RIGHT: preview + compliance + actions */}
-        <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
+        <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
           <section>
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Live digital label

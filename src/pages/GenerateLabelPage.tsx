@@ -240,9 +240,9 @@ const GenerateLabelPage = () => {
 
   // Field row with optional AI suggest button
   const withSuggest = (field: keyof LabelFields, node: React.ReactNode) => (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <Label htmlFor={field} className="text-xs font-medium">
+    <div className="space-y-1.5 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={field} className="text-xs font-medium truncate min-w-0">
           {FIELD_LABELS[field]}
         </Label>
         {AI_FIELDS.includes(field) && (
@@ -250,7 +250,7 @@ const GenerateLabelPage = () => {
             type="button"
             onClick={() => handleSuggest(field)}
             disabled={busyField === field}
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+            className="inline-flex shrink-0 whitespace-nowrap items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
           >
             {busyField === field ? (
               <Loader2 className="h-3 w-3 animate-spin" />

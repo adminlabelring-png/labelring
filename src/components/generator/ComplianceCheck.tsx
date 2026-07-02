@@ -1,5 +1,6 @@
-import { CheckCircle2, AlertCircle, XCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, XCircle, Info } from "lucide-react";
 import type { RuleResult } from "@/lib/label-rules";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const badge = {
   ok: {
@@ -23,22 +24,45 @@ const badge = {
 } as const;
 
 const ComplianceCheck = ({ rules }: { rules: RuleResult[] }) => (
-  <ul className="space-y-1.5">
-    {rules.map((r) => {
-      const b = badge[r.status];
-      return (
-        <li key={r.key} className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2 text-sm">
-          <span className="flex items-center gap-2">
-            <b.Icon className={`h-4 w-4 ${b.className}`} />
-            {r.label}
-          </span>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${b.pill}`}>
-            {b.label}
-          </span>
-        </li>
-      );
-    })}
-  </ul>
+  <TooltipProvider delayDuration={150}>
+    <ul className="space-y-1.5">
+      {rules.map((r) => {
+        const b = badge[r.status];
+        return (
+          <li
+            key={r.key}
+            className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2 text-sm"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <b.Icon className={`h-4 w-4 shrink-0 ${b.className}`} />
+              <span className="truncate">{r.label}</span>
+              {r.why && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="Why this matters"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
+                    {r.why}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </span>
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${b.pill}`}
+            >
+              {b.label}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  </TooltipProvider>
 );
 
 export default ComplianceCheck;

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -22,26 +24,31 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-import { emptyLabel, evaluateLabel, type LabelFields } from "@/lib/label-rules";
+import {
+  emptyLabel,
+  evaluateLabel,
+  deriveWarnings,
+  getPack,
+  type LabelFields,
+  type NutritionTable,
+} from "@/lib/label-rules";
 import { generatePreview, suggestField } from "@/lib/generate-label";
 import { supabase } from "@/integrations/supabase/client";
 import { getLeadId } from "@/lib/lead-tracker";
 import LivePreview from "@/components/generator/LivePreview";
 import ComplianceCheck from "@/components/generator/ComplianceCheck";
 
-const CATEGORIES = ["Skincare", "Food", "Beverage", "Supplement", "Household", "Other"];
+const CATEGORIES = ["Food", "Beverage", "Supplement", "Skincare", "Household", "Other"];
 
-const AI_FIELDS: (keyof LabelFields)[] = [
-  "brandName",
-  "productName",
-  "ingredients",
-  "allergens",
-  "countryOfOrigin",
-  "netQuantity",
-  "batchNumber",
-  "bestBefore",
-  "responsiblePerson",
-  "certifications",
+const NUTRITION_ROWS: { key: keyof NutritionTable; label: string; placeholder: string }[] = [
+  { key: "energyKj", label: "Energy (kJ)", placeholder: "1234" },
+  { key: "energyKcal", label: "Energy (kcal)", placeholder: "295" },
+  { key: "fat", label: "Fat", placeholder: "12g" },
+  { key: "saturates", label: "Saturates", placeholder: "3g" },
+  { key: "carbs", label: "Carbohydrate", placeholder: "34g" },
+  { key: "sugars", label: "Sugars", placeholder: "8g" },
+  { key: "protein", label: "Protein", placeholder: "9g" },
+  { key: "salt", label: "Salt", placeholder: "0.5g" },
 ];
 
 const GenerateLabelPage = () => {
@@ -54,15 +61,41 @@ const GenerateLabelPage = () => {
   const [shareUrl, setShareUrl] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const set = <K extends keyof LabelFields>(k: K, v: string) =>
+  const set = <K extends keyof LabelFields>(k: K, v: LabelFields[K]) =>
     setFields((f) => ({ ...f, [k]: v }));
 
+  const setNutrition = (k: keyof NutritionTable, v: string) =>
+    setFields((f) => ({ ...f, nutrition: { ...f.nutrition, [k]: v } }));
+
+  const pack = useMemo(() => getPack(fields.category), [fields.category]);
   const { score, rules } = useMemo(() => evaluateLabel(fields), [fields]);
+  const derivedWarnings = useMemo(() => deriveWarnings(fields), [fields]);
 
   const hasAnyData = useMemo(
-    () => Object.values(fields).some((v) => v.trim().length > 0),
-    [fields]
+    () =>
+      fields.productName.trim().length > 0 ||
+      fields.brandName.trim().length > 0 ||
+      fields.ingredients.trim().length > 0,
+    [fields.productName, fields.brandName, fields.ingredients]
   );
+
+  const AI_FIELDS: (keyof LabelFields)[] = useMemo(() => {
+    const base: (keyof LabelFields)[] = [
+      "brandName",
+      "productName",
+      "ingredients",
+      "allergens",
+      "countryOfOrigin",
+      "netQuantity",
+      "batchNumber",
+      "bestBefore",
+      "responsiblePerson",
+      "certifications",
+      "storageInstructions",
+    ];
+    if (pack === "food") base.push("quidPercent", "alcoholAbv");
+    return base;
+  }, [pack]);
 
   // Debounced preview generation
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,7 +108,7 @@ const GenerateLabelPage = () => {
     debounceRef.current = setTimeout(async () => {
       setPreviewLoading(true);
       try {
-        const p = await generatePreview(fields);
+        const p = await generatePreview(fields, pack);
         setPreview(p);
       } catch {
         // silent
@@ -87,25 +120,13 @@ const GenerateLabelPage = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    fields.brandName,
-    fields.productName,
-    fields.category,
-    fields.ingredients,
-    fields.allergens,
-    fields.countryOfOrigin,
-    fields.netQuantity,
-    fields.batchNumber,
-    fields.bestBefore,
-    fields.responsiblePerson,
-    fields.certifications,
-  ]);
+  }, [JSON.stringify(fields), pack, hasAnyData]);
 
   const handleSuggest = useCallback(
     async (field: keyof LabelFields) => {
       setBusyField(field);
       try {
-        const value = await suggestField(field, fields);
+        const value = await suggestField(field, fields, pack);
         set(field, value);
       } catch (e) {
         const msg = e instanceof Error ? e.message : "";
@@ -116,8 +137,21 @@ const GenerateLabelPage = () => {
         setBusyField(null);
       }
     },
-    [fields]
+    [fields, pack]
   );
+
+  const handleSuggestNutrition = useCallback(async () => {
+    setBusyField("nutrition");
+    try {
+      const raw = await suggestField("nutrition" as keyof LabelFields, fields, pack);
+      const parsed = JSON.parse(raw);
+      set("nutrition", parsed as NutritionTable);
+    } catch {
+      toast.error("Couldn't suggest nutrition table");
+    } finally {
+      setBusyField(null);
+    }
+  }, [fields, pack]);
 
   const scoreColor =
     score >= 80
@@ -146,6 +180,16 @@ const GenerateLabelPage = () => {
           preview_text: preview || null,
           compliance_score: score,
           lead_id: getLeadId(),
+          pack,
+          date_type: fields.dateType || null,
+          storage_instructions: fields.storageInstructions || null,
+          quid_percent: fields.quidPercent || null,
+          nutrition_json: (Object.keys(fields.nutrition).length ? fields.nutrition : null) as never,
+          alcohol_abv: fields.alcoholAbv ? parseFloat(fields.alcoholAbv) : null,
+          warnings_json: (derivedWarnings.length ? derivedWarnings : null) as never,
+          packaged_protective_atmosphere: fields.packagedProtectiveAtmosphere,
+          nano: fields.nano,
+          irradiated: fields.irradiated,
         })
         .select("id")
         .single();
@@ -184,7 +228,7 @@ const GenerateLabelPage = () => {
         toast.success("Link copied to clipboard");
       }
     } catch {
-      /* user cancelled or error */
+      /* user cancelled */
     }
   };
 
@@ -199,7 +243,11 @@ const GenerateLabelPage = () => {
     doc.text("Digital Product Label", 14, 14);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`Compliance score: ${score}%  ·  Generated ${new Date().toLocaleDateString("en-GB")}`, 14, 24);
+    doc.text(
+      `${pack.toUpperCase()} pack · Score ${score}% · ${new Date().toLocaleDateString("en-GB")}`,
+      14,
+      24
+    );
 
     doc.setTextColor(40, 40, 40);
     doc.setFontSize(11);
@@ -208,7 +256,10 @@ const GenerateLabelPage = () => {
     doc.text(lines, 14, 44);
 
     let y = 44 + lines.length * 5 + 10;
-    if (y > 250) { doc.addPage(); y = 20; }
+    if (y > 250) {
+      doc.addPage();
+      y = 20;
+    }
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 64, 120);
@@ -221,20 +272,26 @@ const GenerateLabelPage = () => {
     doc.setFontSize(10);
     doc.setTextColor(40, 40, 40);
     rules.forEach((r) => {
-      const mark = r.status === "ok" ? "OK" : r.status === "review" ? "REVIEW" : "MISSING";
+      const mark =
+        r.status === "ok" ? "OK" : r.status === "review" ? "REVIEW" : "MISSING";
       doc.text(`• ${r.label} — ${mark}`, 16, y);
       y += 6;
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
     });
 
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
     doc.text(
-      "Automated label draft. Verify against official regulations before print.",
+      "Automated draft based on UK FIC / cosmetic guidance. Verify before print.",
       14,
-      285
+      290
     );
 
-    const filename = (fields.productName || "label").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    const filename =
+      (fields.productName || "label").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     doc.save(`${filename}-label.pdf`);
   };
 
@@ -265,6 +322,9 @@ const GenerateLabelPage = () => {
     </div>
   );
 
+  const showFood = pack === "food";
+  const showBeverage = fields.category.toLowerCase() === "beverage";
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
       {/* Header */}
@@ -272,7 +332,11 @@ const GenerateLabelPage = () => {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Label Generator</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Build a retail-ready product label with AI help
+            {pack === "food"
+              ? "UK FIC pre-packed food label — retail ready draft."
+              : pack === "cosmetic"
+              ? "UK/EU cosmetic label with INCI ingredients."
+              : "Choose a category to unlock the correct rule pack."}
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -284,11 +348,29 @@ const GenerateLabelPage = () => {
       <div className="grid gap-6 xl:grid-cols-[1fr,400px]">
         {/* LEFT: form */}
         <div className="space-y-6">
+          {/* Product identity */}
           <section className="rounded-lg border bg-card p-5">
             <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Product details
+              Product identity
             </h2>
             <div className="space-y-4">
+              <div className="space-y-1.5 min-w-0">
+                <Label htmlFor="category" className="text-xs font-medium">
+                  Category (drives rule pack)
+                </Label>
+                <Select value={fields.category} onValueChange={(v) => set("category", v)}>
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {withSuggest(
                 "brandName",
                 <Input
@@ -298,67 +380,70 @@ const GenerateLabelPage = () => {
                   onChange={(e) => set("brandName", e.target.value)}
                 />
               )}
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {withSuggest(
-                  "productName",
-                  <Input
-                    id="productName"
-                    placeholder="e.g. Aloe Gel"
-                    value={fields.productName}
-                    onChange={(e) => set("productName", e.target.value)}
-                  />
-                )}
-                <div className="space-y-1.5 min-w-0">
-                  <Label htmlFor="category" className="text-xs font-medium">
-                    Category
-                  </Label>
-                  <Select value={fields.category} onValueChange={(v) => set("category", v)}>
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              {withSuggest(
+                "productName",
+                <Input
+                  id="productName"
+                  placeholder={showFood ? "e.g. Steak & Ale Pie" : "e.g. Aloe Gel"}
+                  value={fields.productName}
+                  onChange={(e) => set("productName", e.target.value)}
+                />
+              )}
             </div>
           </section>
 
+          {/* Ingredients */}
           <section className="rounded-lg border bg-card p-5">
             <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Ingredients & allergens
+              Ingredients &amp; allergens
             </h2>
             <div className="space-y-4">
               {withSuggest(
                 "ingredients",
                 <Textarea
                   id="ingredients"
-                  rows={3}
-                  placeholder="e.g. Aqua, Aloe Barbadensis Leaf Juice, Glycerin…"
+                  rows={4}
+                  placeholder={
+                    showFood
+                      ? "e.g. Beef (62%), Water, WHEAT flour, Onions, Ale (contains BARLEY)…"
+                      : "e.g. Aqua, Aloe Barbadensis Leaf Juice, Glycerin…"
+                  }
                   value={fields.ingredients}
                   onChange={(e) => set("ingredients", e.target.value)}
                 />
+              )}
+              {showFood && (
+                <p className="rounded-md bg-muted/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                  UK FIC requires the 14 allergens to be emphasised in the list (CAPS or bold).
+                  List ingredients in descending order of weight.
+                </p>
               )}
               {withSuggest(
                 "allergens",
                 <Input
                   id="allergens"
-                  placeholder="e.g. Limonene, Linalool"
+                  placeholder={showFood ? "e.g. Wheat, Barley" : "e.g. Limonene, Linalool"}
                   value={fields.allergens}
                   onChange={(e) => set("allergens", e.target.value)}
                 />
               )}
+              {showFood &&
+                withSuggest(
+                  "quidPercent",
+                  <Input
+                    id="quidPercent"
+                    placeholder="e.g. Beef 62%"
+                    value={fields.quidPercent}
+                    onChange={(e) => set("quidPercent", e.target.value)}
+                  />
+                )}
             </div>
           </section>
 
+          {/* Origin / quantity / dates */}
           <section className="rounded-lg border bg-card p-5">
             <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Origin & compliance
+              Origin, quantity &amp; dates
             </h2>
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -375,18 +460,37 @@ const GenerateLabelPage = () => {
                   "netQuantity",
                   <Input
                     id="netQuantity"
-                    placeholder="e.g. 200ml"
+                    placeholder={showFood ? "e.g. 400g" : "e.g. 200ml"}
                     value={fields.netQuantity}
                     onChange={(e) => set("netQuantity", e.target.value)}
                   />
                 )}
               </div>
+              {showFood && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Date mark type</Label>
+                  <RadioGroup
+                    value={fields.dateType || ""}
+                    onValueChange={(v) => set("dateType", v as LabelFields["dateType"])}
+                    className="flex gap-4"
+                  >
+                    <label className="flex items-center gap-2 text-sm">
+                      <RadioGroupItem value="use_by" id="dt-use" />
+                      <span>Use by (safety)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <RadioGroupItem value="best_before" id="dt-bb" />
+                      <span>Best before (quality)</span>
+                    </label>
+                  </RadioGroup>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {withSuggest(
                   "batchNumber",
                   <Input
                     id="batchNumber"
-                    placeholder="e.g. BT-2026-441"
+                    placeholder="e.g. L2026-118A"
                     value={fields.batchNumber}
                     onChange={(e) => set("batchNumber", e.target.value)}
                   />
@@ -395,12 +499,125 @@ const GenerateLabelPage = () => {
                   "bestBefore",
                   <Input
                     id="bestBefore"
-                    placeholder="e.g. 06/2028"
+                    placeholder={showFood ? "DD/MM/YYYY" : "MM/YYYY"}
                     value={fields.bestBefore}
                     onChange={(e) => set("bestBefore", e.target.value)}
                   />
                 )}
               </div>
+              {withSuggest(
+                "storageInstructions",
+                <Textarea
+                  id="storageInstructions"
+                  rows={2}
+                  placeholder="e.g. Keep refrigerated below 5°C. Once opened, consume within 3 days."
+                  value={fields.storageInstructions}
+                  onChange={(e) => set("storageInstructions", e.target.value)}
+                />
+              )}
+              {showBeverage &&
+                withSuggest(
+                  "alcoholAbv",
+                  <Input
+                    id="alcoholAbv"
+                    placeholder="e.g. 4.5% vol"
+                    value={fields.alcoholAbv}
+                    onChange={(e) => set("alcoholAbv", e.target.value)}
+                  />
+                )}
+            </div>
+          </section>
+
+          {/* Nutrition (food only) */}
+          {showFood && (
+            <section className="rounded-lg border bg-card p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Nutrition (per 100g)
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleSuggestNutrition}
+                  disabled={busyField === "nutrition"}
+                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+                >
+                  {busyField === "nutrition" ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  Suggest full table
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {NUTRITION_ROWS.map((row) => (
+                  <div key={row.key} className="space-y-1">
+                    <Label className="text-[11px] font-medium text-muted-foreground">
+                      {row.label}
+                    </Label>
+                    <Input
+                      value={fields.nutrition[row.key] ?? ""}
+                      onChange={(e) => setNutrition(row.key, e.target.value)}
+                      placeholder={row.placeholder}
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Warnings & handling */}
+          {showFood && (
+            <section className="rounded-lg border bg-card p-5">
+              <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Warnings &amp; handling
+              </h2>
+              <div className="space-y-3 text-sm">
+                <label className="flex items-start gap-2">
+                  <Checkbox
+                    checked={fields.packagedProtectiveAtmosphere}
+                    onCheckedChange={(v) =>
+                      set("packagedProtectiveAtmosphere", Boolean(v))
+                    }
+                  />
+                  <span>Packaged in a protective atmosphere</span>
+                </label>
+                <label className="flex items-start gap-2">
+                  <Checkbox
+                    checked={fields.nano}
+                    onCheckedChange={(v) => set("nano", Boolean(v))}
+                  />
+                  <span>Contains engineered nanomaterials (adds "(nano)")</span>
+                </label>
+                <label className="flex items-start gap-2">
+                  <Checkbox
+                    checked={fields.irradiated}
+                    onCheckedChange={(v) => set("irradiated", Boolean(v))}
+                  />
+                  <span>Treated with ionising radiation</span>
+                </label>
+                {derivedWarnings.length > 0 && (
+                  <div className="rounded-md border border-[hsl(var(--risk-medium))] bg-[hsl(var(--risk-medium-bg))] p-3 text-xs">
+                    <div className="mb-1 font-semibold uppercase tracking-wider text-[hsl(var(--risk-medium))]">
+                      Regulatory warnings auto-detected
+                    </div>
+                    <ul className="list-disc space-y-1 pl-4 text-[hsl(var(--risk-medium))]">
+                      {derivedWarnings.map((w) => (
+                        <li key={w.key}>{w.phrase}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Business & certifications */}
+          <section className="rounded-lg border bg-card p-5">
+            <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Business &amp; certifications
+            </h2>
+            <div className="space-y-4">
               {withSuggest(
                 "responsiblePerson",
                 <Input
@@ -414,7 +631,11 @@ const GenerateLabelPage = () => {
                 "certifications",
                 <Input
                   id="certifications"
-                  placeholder="e.g. Organic, Cruelty Free, Vegan"
+                  placeholder={
+                    showFood
+                      ? "e.g. Red Tractor, Organic, RSPCA Assured"
+                      : "e.g. Cruelty Free, Vegan, COSMOS Organic"
+                  }
                   value={fields.certifications}
                   onChange={(e) => set("certifications", e.target.value)}
                 />
@@ -434,7 +655,7 @@ const GenerateLabelPage = () => {
 
           <section>
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Compliance check
+              Compliance check · {pack.toUpperCase()}
             </h2>
             <ComplianceCheck rules={rules} />
           </section>
@@ -470,8 +691,8 @@ const GenerateLabelPage = () => {
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            This is an AI-assisted draft. Verify against your official regulatory
-            guidance before print.
+            AI-assisted draft based on UK FIC / cosmetic guidance. Verify against your
+            official regulatory advice before print.
           </p>
         </div>
       </div>
@@ -505,7 +726,7 @@ const GenerateLabelPage = () => {
   );
 };
 
-const FIELD_LABELS: Record<keyof LabelFields, string> = {
+const FIELD_LABELS: Record<string, string> = {
   brandName: "Brand name",
   productName: "Product name",
   category: "Category",
@@ -513,10 +734,13 @@ const FIELD_LABELS: Record<keyof LabelFields, string> = {
   allergens: "Allergens (comma separated)",
   countryOfOrigin: "Country of origin",
   netQuantity: "Net quantity",
-  batchNumber: "Batch number",
-  bestBefore: "Best before",
-  responsiblePerson: "Responsible person (UK)",
-  certifications: "Certifications (comma separated)",
+  batchNumber: "Batch / lot code",
+  bestBefore: "Date mark",
+  responsiblePerson: "Responsible person / FBO (UK)",
+  certifications: "Certifications",
+  storageInstructions: "Storage instructions",
+  quidPercent: "QUID declaration",
+  alcoholAbv: "Alcohol strength (% vol)",
 };
 
 export default GenerateLabelPage;

@@ -1,69 +1,19 @@
-# Label Generator — Plan
+## Root causes
 
-Add a new public page `/generate` (linked in the sidebar below "Scan Label") that lets anyone build a compliant product label from scratch, with AI assistance, a live preview, live compliance scoring, and real Save/Export/QR actions backed by Lovable Cloud.
+**1 & 3 (Suggest does nothing, Live Digital Label stuck):** The `generate-label` edge function code exists in the repo but has never been deployed. Every call to `/functions/v1/generate-label` fails with `Failed to fetch` (visible in network logs), which is why `suggestField` and `generatePreview` silently fail.
 
-## Layout (matches uploaded reference, adapted to our slate/green-amber-red design tokens — no purple)
+**2 (Product Details overlap):** The `Label Generator` page uses `lg:grid-cols-[1fr,420px]` at the outer level *and* `sm:grid-cols-2` inside the "Product details" and "Origin & compliance" sections. On desktop the sidebar eats ~256px, so at 1025px viewport the left column ends up ~320px wide — each inner 2‑col cell is only ~150px. "Product name" label wraps and the `✨ Suggest` chip collides with the neighbouring "Category" cell. Same class of issue for the batch/best‑before and origin/quantity rows.
 
-```
-┌─ Header: LABELRING logo · "Compliance score: 72%" ──────────┐
-│ ┌── LEFT (form) ─────────┐  ┌── RIGHT (preview) ─────────┐  │
-│ │ PRODUCT DETAILS         │  │ LIVE DIGITAL LABEL          │ │
-│ │  Brand name       [✨] │  │  (rendered on-pack block:   │ │
-│ │  Product name / Category│  │   name, ingredients, warn., │ │
-│ │ INGREDIENTS & ALLERGENS │  │   allergens, quantity,      │ │
-│ │  Ingredients      [✨] │  │   responsible person, batch,│ │
-│ │  Allergens        [✨] │  │   best-before, origin, certs)│ │
-│ │ ORIGIN & COMPLIANCE     │  │                             │ │
-│ │  Country / Net quantity │  │ COMPLIANCE CHECK            │ │
-│ │  Batch / Best before    │  │  ● Product identity   OK    │ │
-│ │  Responsible person (UK)│  │  ● Ingredients decl.  Miss. │ │
-│ │  Certifications    [✨] │  │  ● Allergens flagged  OK    │ │
-│ └────────────────────────┘  │  ● Country of origin  OK    │ │
-│                             │  ● Quantity declared  Miss. │ │
-│                             │  ● Responsible person OK    │ │
-│                             │  ● Batch traceability OK    │ │
-│                             │ [Copy QR link][Export][Share]│ │
-│                             └─────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────┘
-```
+## Fix
 
-Mobile: preview collapses under form; sticky bottom bar shows score + primary action.
+1. **Deploy `supabase/functions/generate-label/index.ts`** (no code change needed — it's already implemented correctly). This unblocks the `Suggest` buttons and the debounced Live Digital Label preview.
 
-## Fields (all from screenshot)
-Brand name, Product name, Category (Skincare / Food / Beverage / Supplement / Household / Other), Ingredients, Allergens, Country of origin, Net quantity, Batch number, Best before, Responsible person (UK), Certifications.
+2. **Fix layout collisions in `src/pages/GenerateLabelPage.tsx`:**
+   - Switch inner `sm:grid-cols-2` groups (product name/category, origin/quantity, batch/best-before) to `xl:grid-cols-2` so they only split when there's genuine room. Below that they stack vertically.
+   - Add `min-w-0` to grid cells so labels/inputs can shrink without overflowing.
+   - In the `withSuggest` row, add `gap-2`, `min-w-0`, `truncate` on the label and `shrink-0 whitespace-nowrap` on the Suggest button so the chip never overlaps.
+   - Bump the outer split from `lg:grid-cols-[1fr,420px]` to `xl:grid-cols-[1fr,400px]` so on ~1024px screens the preview stacks below the form instead of squeezing it.
 
-## AI behavior (via `generate-label` edge function, model `google/gemini-3-flash-preview`)
-- Per-field ✨ button → `POST /generate-label { mode: "field", field, context: {all current fields} }` returns a single suggestion for that field. Category-aware (skincare vs food prompts differ).
-- Preview generator → `POST /generate-label { mode: "preview", fields }` returns the composed on-pack copy block (product name headline, ingredients line "Ingredients: ...", allergen callout, quantity, RP address block, batch/BB line, origin, cert icons list).
-- Debounced 800ms after any field change; loading shimmer in preview card.
+3. **Verify** by reloading `/generate`, clicking a Suggest button (expect a value to populate) and typing a brand name (expect the Live Digital Label to render composed text within ~1s).
 
-## Live compliance scoring (client-side, no AI)
-- 7 rules: product identity, ingredients declared, allergens flagged (present OR explicit "None"), country of origin, quantity declared (must contain a unit), responsible person (must have address), batch traceability.
-- Score = passed / 7 · 100, rounded. Header pill updates live; each item in Compliance Check shows OK / Missing / Needs review.
-
-## Actions (all working, persisted)
-- **Export label**: client-side jsPDF using existing `generate-report.ts` pattern; downloads `<product>-label.pdf` with the live preview block.
-- **Copy QR link**: saves the label row, generates `/label/:id` public view URL, copies to clipboard, and shows QR (using `qrcode` — add via `bun add qrcode`).
-- **Share**: `navigator.share` when available, else copies link + toast.
-- New public view route `/label/:id` renders the saved live label read-only.
-
-## Backend
-
-New table `generated_labels`:
-- `brand_name`, `product_name`, `category`, `ingredients`, `allergens`, `country_of_origin`, `net_quantity`, `batch_number`, `best_before`, `responsible_person`, `certifications` (all text/text[]), `compliance_score` int, `lead_id` text nullable (reuse lead tracker), plus id/created_at.
-- RLS: anon INSERT allowed (public funnel), anon SELECT allowed (public share links), no update/delete for anon; service_role full.
-- GRANT SELECT, INSERT to anon; GRANT ALL to service_role.
-
-New edge function `generate-label` (verify_jwt=false, CORS) with two modes above, returning JSON.
-
-## Sidebar / routing
-- `AppSidebar`: add "Generate Label" item (icon: `Wand2`) under "Scan Label", route `/generate`.
-- `App.tsx`: add `/generate` → `GenerateLabelPage`, `/label/:id` → `PublicLabelPage`.
-
-## Files
-- New: `src/pages/GenerateLabelPage.tsx`, `src/pages/PublicLabelPage.tsx`, `src/components/generator/LivePreview.tsx`, `src/components/generator/ComplianceCheck.tsx`, `src/lib/label-rules.ts`, `src/lib/generate-label.ts` (client wrapper), `supabase/functions/generate-label/index.ts`.
-- Edit: `src/components/AppSidebar.tsx`, `src/App.tsx`.
-- Migration: create `generated_labels` table + policies + grants.
-
-## Out of scope
-Auth, versioning of generated labels, workspace integration, multi-language, real regulatory validation (still keep the disclaimer used in scan flow).
+No changes to business logic, DB schema, or the edge function contents.

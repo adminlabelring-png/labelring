@@ -281,7 +281,7 @@ const GenerateLabelPage = () => {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr,420px]">
+      <div className="grid gap-6 xl:grid-cols-[1fr,400px]">
         {/* LEFT: form */}
         <div className="space-y-6">
           <section className="rounded-lg border bg-card p-5">

@@ -59,7 +59,12 @@ const EarlyAccessForm = () => {
     }
     setErrors({});
     setSubmitting(true);
-    const { error } = await supabase.from("early_access_signups").insert([parsed.data]);
+    const { error } = await supabase.from("early_access_signups").insert([{
+      name: parsed.data.name,
+      email: parsed.data.email,
+      company: parsed.data.company,
+      product_category: parsed.data.product_category,
+    }]);
     setSubmitting(false);
     if (error) {
       toast({

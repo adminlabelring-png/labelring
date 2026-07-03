@@ -97,6 +97,33 @@ export type Database = {
           },
         ]
       }
+      early_access_signups: {
+        Row: {
+          company: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          product_category: string
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          product_category: string
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          product_category?: string
+        }
+        Relationships: []
+      }
       generated_labels: {
         Row: {
           alcohol_abv: number | null

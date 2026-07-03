@@ -1,99 +1,48 @@
-## Goal
 
-Turn the Label Generator into a full UK FIC (Food Information for Consumers) compliance tool for food/drink labels, while keeping skincare (INCI/CPNP) support behind a category-driven rule pack switch.
+# Redesign — Public landing (/)
 
-## 1. Category-driven rule packs
+Rewrite `src/pages/LandingPage.tsx` to match the Labelring Content & SEO Strategy v3. Slate design tokens only (no purple). Primary CTA sends visitors to `/generate`.
 
-Top of `GenerateLabelPage`, treat `category` as the mode switch:
+## New page structure
 
-- `Food` / `Beverage` / `Supplement` → **UK FIC pack**
-- `Skincare` → **Cosmetic pack** (current INCI + allergen behaviour)
-- Empty / `Other` / `Household` → generic pack (today's basic 7 rules)
+1. **Nav / meta** — update `index.html` title + description to the v3 copy.
+2. **Hero** — "Your shortcut to compliant products." Sub-copy, primary CTA `Create Your Digital Label → /generate`, secondary `See how it works →` (scrolls to How it works). Split hero: copy left, mock label preview card right (uses existing slate/risk tokens).
+3. **Problem section** — H2 "Right now, UK labelling is broken…" rendered as a two-column comparison table (Current reality vs With Labelring), 4 rows from the PDF. Red-tinted left column, green-tinted right column using existing `--risk-high-bg` / `--risk-low-bg` tokens.
+4. **Who it's for** — 3 cards: Food & FMCG, Cosmetics & Wellness, Importers & Distributors. Emoji + heading + description from PDF.
+5. **Regulation section** — H2 "Four regulatory waves. One platform built for all of them." 4 cards in a 2×2 grid: PRMA 2025, EPR, EU DPP, HFSS & Cosmetics. Each card has a "in force from…" pill.
+6. **How it works** — keep existing 3-step block (Upload → Scan → Review), retargeted copy.
+7. **Early Access section** — H2 + subtext from PDF. Form: Name, Work email, Company, Product category (dropdown: Food & Drink / Cosmetics & Wellness / Jewellery & Accessories / Import & Distribution / Other). Zod-validated, submits to Supabase.
+8. **Footer** — © 2026 Labelring Ltd. Registered in England and Wales. Company No. 16816508. LinkedIn + Instagram icons. "Built in the UK · Compliant with UK GDPR".
 
-Rule pack picked once in `label-rules.ts`; the form conditionally shows food-only or cosmetic-only fields based on pack.
+## Backend
 
-## 2. New fields (added to `LabelFields`)
+New table `early_access_signups`:
 
-Shared:
-- `dateType` — `use_by` | `best_before` (radio, food only)
-- `storageInstructions` — textarea
-- `nanoIngredients` — checkbox (adds "(nano)" hint)
-- `irradiated` — checkbox
+- `name text`, `email text`, `company text`, `product_category text`
+- `created_at timestamptz default now()`
+- RLS on. Policy: anyone (anon + authenticated) can INSERT; only service_role can SELECT (form is public, submissions private).
+- Grants: `GRANT INSERT ON public.early_access_signups TO anon, authenticated; GRANT ALL TO service_role;` (no SELECT to anon/authenticated).
+- Client-side zod validation (name 1–100, email valid + ≤255, company 1–200, category enum).
 
-Food/drink only:
-- `quidPercent` — text (e.g. "Pork 80%")
-- `nutrition` — structured mini-table (energy kJ/kcal, fat, saturates, carbs, sugars, protein, salt per 100g)
-- `alcoholAbv` — number, triggers ABV display + "responsible drinking" if >1.2%
-- `warnings` — multi-select derived automatically from ingredients (aspartame → phenylalanine, liquorice thresholds, caffeine >150 mg/L, polyols >10%, sweeteners, plant sterols)
-- `packagedInProtectiveAtmosphere` — checkbox
+## Visual language
 
-Cosmetic keeps existing fields.
+- Slate base (`bg-background`, `bg-card`, `border`), existing `--risk-*` tokens for status/comparison accents. No new colors, no purple.
+- Hero uses a soft gradient wash of `--muted` behind the copy; a mocked "Live compliance score" card floats on the right (static, echoes `ComplianceScoreBadge`).
+- Comparison table: two stacked cards on mobile, side-by-side on md+. Icons: `XCircle` for reality, `CheckCircle2` for Labelring.
+- Regulation cards: `border-l-2 border-primary` accent, small "Jan 2026" style pill.
+- Micro-motion: framer-motion fade/slide-in on section enter (already used on page).
 
-## 3. Compliance rules (`src/lib/label-rules.ts`)
+## Files touched
 
-Rewrite `evaluateLabel(fields)` to return the pack-specific rule list.
+- `index.html` — meta title + description.
+- `src/pages/LandingPage.tsx` — full rewrite.
+- `src/components/landing/EarlyAccessForm.tsx` — new, zod + supabase insert.
+- `src/components/landing/ComparisonTable.tsx` — new.
+- `src/components/landing/RegulationCards.tsx` — new.
+- `src/components/landing/LandingFooter.tsx` — new.
+- Migration: create `early_access_signups` with grants + RLS + insert-only policy.
 
-**UK FIC pack (food/drink):**
+## Out of scope (from the PDF, deferred)
 
-| Key | Check |
-|---|---|
-| identity | product name + FBO trading name |
-| ingredients_heading | ingredients present, ordered by weight (heuristic: comma count ≥ 2) |
-| allergens_caps | allergens from the 14 UK list detected in ingredients rendered in CAPS |
-| quid | if product name references an ingredient with a picture keyword, QUID % supplied |
-| net_quantity | number + valid metric unit (g, kg, ml, l, cl) |
-| date_mark | `use_by` OR `best_before` supplied, `use_by` flagged for perishables |
-| fbo_uk_address | responsible person contains UK-style postcode regex |
-| storage | storage instructions present when `use_by` or refrigerated keywords |
-| nutrition_table | mandatory unless single-ingredient / exempt category |
-| abv | drinks >1.2% must show "% vol" |
-| warnings | conditional warnings present when triggers detected |
-| field_of_vision | name + net qty + ABV grouped in preview's first block |
-
-Each rule returns `ok | review | missing` with a short "why" tooltip string.
-
-**Cosmetic pack:** keeps current rules + adds:
-- INCI-only ingredient list check (no plain names)
-- Allergen fragrance list matches EU 26/81 allergens
-- PAO (period after opening) symbol or best-before ≥ 30 months
-
-## 4. Edge function (`supabase/functions/generate-label/index.ts`)
-
-- Accept `pack: "food" | "cosmetic" | "generic"` in the request body.
-- Split `FIELD_INSTRUCTIONS` into `FOOD_FIELD_INSTRUCTIONS` and `COSMETIC_FIELD_INSTRUCTIONS`; pick by pack.
-- Rewrite the `preview` system prompt per pack:
-  - Food prompt enforces UK FIC ordering: line 1 name; field-of-vision block (name / net quantity / ABV); ingredients heading; allergens in CAPS; QUID; date mark with correct "Use by" vs "Best before"; storage; FBO UK address; country of origin; nutrition table (as ASCII rows); warnings block; certifications last. British English, no markdown.
-  - Cosmetic prompt keeps current INCI-centric composition.
-- Add a `warnings` derivation helper server-side that scans ingredients for aspartame / liquorice / caffeine / polyols / sterols and returns the exact regulatory sentences to inline.
-
-## 5. UI changes (`GenerateLabelPage.tsx`)
-
-- Category select moves to top; changing it swaps visible sections via the pack.
-- New "Nutrition" section (food pack): 7 inputs in a compact grid, "Suggest full table" AI button that fills all seven from ingredients context.
-- New "Warnings & handling" section (food pack): checkboxes + `dateType` radio + storage textarea + protective atmosphere.
-- "Alcohol" row appears only for `Beverage` pack when ABV > 0.
-- Add a per-rule "why" popover on the compliance list using the tooltip string from rule evaluation.
-- Preview block groups the field-of-vision items visually (bordered top block).
-
-## 6. Files touched
-
-- `src/lib/label-rules.ts` — extend `LabelFields`, add pack detection, rewrite `evaluateLabel`, expose `getPack(category)` and `deriveWarnings(fields)`.
-- `src/lib/generate-label.ts` — pass `pack` through to the edge function.
-- `supabase/functions/generate-label/index.ts` — pack-aware prompts + warnings helper.
-- `src/pages/GenerateLabelPage.tsx` — conditional sections, new fields, pack-aware form.
-- `src/components/generator/LivePreview.tsx` — split field-of-vision top block visually.
-- `src/components/generator/ComplianceCheck.tsx` — add tooltip / "why" line.
-- `src/pages/PublicLabelPage.tsx` — render new fields if present.
-- **Migration** — add nullable columns to `generated_labels`: `pack`, `date_type`, `storage_instructions`, `quid_percent`, `nutrition_json`, `alcohol_abv`, `warnings_json`, `packaged_protective_atmosphere`, `nano`, `irradiated`.
-
-## 7. Out of scope (deferred)
-
-- Automated x-height / font-size print validation (needs artwork upload).
-- Category-specific enforcement variations for NI vs GB (`UK(NI)` origin).
-- Nutrition claim validation ("high in fibre" thresholds).
-
-## Technical notes
-
-- No breaking change to existing rows: all new columns nullable, existing preview links still render.
-- Rule evaluation stays fully client-side; only prompt composition/AI suggestions round-trip to the edge function.
-- British English, no purple, keep slate + risk tokens.
+- Sitemap.xml / robots.txt / SoftwareApplication schema / `/blog` route / PageSpeed work — flagged in the PDF as "Part 2 SEO fixes" but separate from the homepage redesign. I can tackle these next in a follow-up if you want.
+- Workspace home tab stays unchanged.

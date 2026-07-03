@@ -97,30 +97,37 @@ const GenerateLabelPage = () => {
     return base;
   }, [pack]);
 
-  // Debounced preview generation
+  // Debounced preview generation — skips while a Suggest is in flight to avoid rate limits
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPreviewAt = useRef(0);
   useEffect(() => {
-    if (!hasAnyData) {
-      setPreview("");
+    if (!hasAnyData || busyField) {
+      if (!hasAnyData) setPreview("");
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
+      const now = Date.now();
+      if (now - lastPreviewAt.current < 2500) return; // hard throttle
+      lastPreviewAt.current = now;
       setPreviewLoading(true);
       try {
         const p = await generatePreview(fields, pack);
         setPreview(p);
-      } catch {
-        // silent
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        if (msg.includes("429")) {
+          toast.error("Preview paused — AI rate limit. Retrying shortly.");
+        }
       } finally {
         setPreviewLoading(false);
       }
-    }, 900);
+    }, 2000);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(fields), pack, hasAnyData]);
+  }, [JSON.stringify(fields), pack, hasAnyData, busyField]);
 
   const handleSuggest = useCallback(
     async (field: keyof LabelFields) => {

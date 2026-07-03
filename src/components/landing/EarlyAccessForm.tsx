@@ -59,7 +59,7 @@ const EarlyAccessForm = () => {
     }
     setErrors({});
     setSubmitting(true);
-    const { error } = await supabase.from("early_access_signups").insert(parsed.data);
+    const { error } = await supabase.from("early_access_signups").insert([parsed.data]);
     setSubmitting(false);
     if (error) {
       toast({

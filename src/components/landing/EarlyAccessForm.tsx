@@ -36,12 +36,18 @@ const schema = z.object({
 });
 
 const EarlyAccessForm = () => {
-  const [values, setValues] = useState({
+  const [values, setValues] = useState<{
+    name: string;
+    email: string;
+    company: string;
+    product_category: string | undefined;
+  }>({
     name: "",
     email: "",
     company: "",
-    product_category: "",
+    product_category: undefined,
   });
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);

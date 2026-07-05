@@ -1,4 +1,6 @@
 import { Linkedin, Instagram } from "lucide-react";
+import { Link } from "react-router-dom";
+
 
 const LandingFooter = () => (
   <footer className="rounded-xl border bg-card p-6 mt-8">

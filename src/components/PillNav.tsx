@@ -34,9 +34,10 @@ const PillNav = () => {
           </NavLink>
         ))}
       </div>
-      <Link to="/generate" className="ml-1">
+      <a href="/#early-access" className="ml-1">
         <Button size="sm" className="rounded-full h-8 px-4">Get started</Button>
-      </Link>
+      </a>
+
     </nav>
   );
 };

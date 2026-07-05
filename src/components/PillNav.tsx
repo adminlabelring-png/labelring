@@ -6,7 +6,7 @@ const links = [
   { to: "/", label: "Home", end: true },
   { to: "/scan", label: "Scan" },
   { to: "/generate", label: "Generate" },
-  { to: "/workspace", label: "Workspace" },
+
 ];
 
 const PillNav = () => {

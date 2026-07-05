@@ -1,4 +1,6 @@
 import { Linkedin, Instagram } from "lucide-react";
+import { Link } from "react-router-dom";
+
 
 const LandingFooter = () => (
   <footer className="rounded-xl border bg-card p-6 mt-8">
@@ -6,26 +8,35 @@ const LandingFooter = () => (
       <div className="text-xs text-muted-foreground">
         © 2026 Labelring Ltd. Registered in England and Wales. Company No. 16816508.
       </div>
-      <div className="flex items-center gap-3">
-        <a
-          href="https://www.linkedin.com/company/labelring/posts/?feedView=all"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Labelring on LinkedIn"
-          className="h-8 w-8 rounded-md border inline-flex items-center justify-center hover:bg-accent text-muted-foreground"
+      <div className="flex flex-col items-center md:items-end gap-1.5">
+        <div className="flex items-center gap-3">
+          <a
+            href="https://www.linkedin.com/company/labelring/posts/?feedView=all"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Labelring on LinkedIn"
+            className="h-8 w-8 rounded-md border inline-flex items-center justify-center hover:bg-accent text-muted-foreground"
+          >
+            <Linkedin className="h-4 w-4" />
+          </a>
+          <a
+            href="https://www.instagram.com/labelring/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Labelring on Instagram"
+            className="h-8 w-8 rounded-md border inline-flex items-center justify-center hover:bg-accent text-muted-foreground"
+          >
+            <Instagram className="h-4 w-4" />
+          </a>
+        </div>
+        <Link
+          to="/workspace"
+          className="text-[10px] text-muted-foreground/70 hover:text-muted-foreground tracking-wide"
         >
-          <Linkedin className="h-4 w-4" />
-        </a>
-        <a
-          href="https://www.instagram.com/labelring/"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Labelring on Instagram"
-          className="h-8 w-8 rounded-md border inline-flex items-center justify-center hover:bg-accent text-muted-foreground"
-        >
-          <Instagram className="h-4 w-4" />
-        </a>
+          Workspace
+        </Link>
       </div>
+
     </div>
     <div className="mt-4 pt-4 border-t text-[11px] text-muted-foreground text-center md:text-left">
       Built in the UK · Compliant with UK GDPR

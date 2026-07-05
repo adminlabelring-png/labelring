@@ -1,27 +1,21 @@
-## Plan: Replace public sidebar with floating pill nav + mobile bottom tabs
+## Changes
 
-Convert the public app shell from a fixed left sidebar to a **floating pill nav** on desktop and a **bottom tab bar** on mobile. Workspace routes keep their existing sidebar (unchanged).
+1. **Landing hero — add Scan CTA**
+   - In `src/pages/LandingPage.tsx`, next to the "Create your digital label" button, add a secondary `<Link to="/scan">` button ("Scan to check compliance") using `variant="outline"` for visual balance. Keep the existing "See how it works" ghost link or move it to a second row — leaning toward replacing it to avoid three CTAs.
 
-### Files
+2. **Nav — move Workspace out of top pill into footer**
+   - `src/components/PillNav.tsx`: remove the `Workspace` entry from `links`.
+   - `src/components/BottomTabBar.tsx`: also remove Workspace (mobile tab bar mirrors the top nav; otherwise mobile still exposes it prominently). Switch grid to `grid-cols-3`.
+   - `src/components/landing/LandingFooter.tsx`: below the LinkedIn/Instagram icon row, add a tiny `text-[10px] text-muted-foreground` link `<Link to="/workspace">Workspace</Link>` aligned under the icons.
 
-**Edit `src/components/AppLayout.tsx`** — replace sidebar shell with:
-- Desktop: centered floating pill `<nav>` fixed at `top-4`, rounded-full, `bg-card/80 backdrop-blur border shadow-lg`, containing logo + nav links + a primary CTA ("Book a call" → scrolls to early-access or links to `/generate`). Main content gets `pt-24` and standard container padding — no more `pl-60`.
-- Mobile: no top header. Fixed bottom tab bar with 4 icons (Home, Scan, Generate, Workspace), `bg-card/95 backdrop-blur border-t`, safe-area padding, active state with primary color + small label. Main content gets `pb-20`.
-- Remove the `Sheet` / hamburger drawer entirely.
+3. **Fix Product Category dropdown in EarlyAccessForm**
+   - `src/components/landing/EarlyAccessForm.tsx` uses shadcn `Select` inside a form. Root cause is typically that the Radix Select portal + pointer-events interact badly, or the empty-string initial value (`product_category: ""`) which Radix Select disallows. Fix: initialize as `undefined`, keep type as optional in state, and ensure the `SelectItem` values are non-empty (they already are). Also verify no parent has `pointer-events-none`. Confirm via Playwright: open the select, pick an item, submit.
 
-**Delete `src/components/AppSidebar.tsx`** — no longer used (workspace has its own `WorkspaceSidebar`).
+4. **"Get started" button target**
+   - `src/components/PillNav.tsx`: change the trailing `<Link to="/generate">` wrapping the "Get started" button to an anchor `<a href="/#early-access">` (or use `HashLink` behavior — a plain `<a>` works since `#early-access` already exists as the section id on `LandingPage`). On non-home routes this navigates home and scrolls to the form.
 
-**Create `src/components/PillNav.tsx`** — desktop floating pill component (logo dot + links + CTA), uses `NavLink` for active state.
+## Out of scope
+No backend, no design token changes, workspace routes untouched.
 
-**Create `src/components/BottomTabBar.tsx`** — mobile bottom tabs, 4 items, active pill highlight.
-
-### Design tokens (reuse existing)
-- `bg-card`, `border`, `text-sidebar-primary` for brand, `bg-accent`/`text-accent-foreground` for active states. No new colors, no purple.
-
-### Out of scope
-- Workspace layout untouched (its sidebar is appropriate for 10+ grouped items).
-- Landing page content untouched.
-- No backend changes.
-
-### Verification
-- Playwright screenshots at 1280px and 390px widths confirming nav doesn't overlap hero content and all links reachable.
+## Verification
+Playwright at 1280×1800 and 390×844: home page shows both CTAs, dropdown opens and selects a category, footer shows tiny Workspace link, "Get started" scrolls to the form.

@@ -84,12 +84,19 @@ const LandingPage = () => {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
+              <Link to="/scan">
+                <Button variant="outline" size="lg" className="gap-2">
+                  Scan to check compliance
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
               <a href="#how-it-works">
                 <Button variant="ghost" size="lg" className="gap-1">
                   See how it works <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
             </div>
+
             <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground">
               {["UK FIC ready", "EU DPP export", "EPR recycling labels", "HFSS classification"].map((t) => (
                 <span key={t} className="inline-flex items-center gap-1.5">

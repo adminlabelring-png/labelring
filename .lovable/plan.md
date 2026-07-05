@@ -1,48 +1,27 @@
+## Plan: Replace public sidebar with floating pill nav + mobile bottom tabs
 
-# Redesign — Public landing (/)
+Convert the public app shell from a fixed left sidebar to a **floating pill nav** on desktop and a **bottom tab bar** on mobile. Workspace routes keep their existing sidebar (unchanged).
 
-Rewrite `src/pages/LandingPage.tsx` to match the Labelring Content & SEO Strategy v3. Slate design tokens only (no purple). Primary CTA sends visitors to `/generate`.
+### Files
 
-## New page structure
+**Edit `src/components/AppLayout.tsx`** — replace sidebar shell with:
+- Desktop: centered floating pill `<nav>` fixed at `top-4`, rounded-full, `bg-card/80 backdrop-blur border shadow-lg`, containing logo + nav links + a primary CTA ("Book a call" → scrolls to early-access or links to `/generate`). Main content gets `pt-24` and standard container padding — no more `pl-60`.
+- Mobile: no top header. Fixed bottom tab bar with 4 icons (Home, Scan, Generate, Workspace), `bg-card/95 backdrop-blur border-t`, safe-area padding, active state with primary color + small label. Main content gets `pb-20`.
+- Remove the `Sheet` / hamburger drawer entirely.
 
-1. **Nav / meta** — update `index.html` title + description to the v3 copy.
-2. **Hero** — "Your shortcut to compliant products." Sub-copy, primary CTA `Create Your Digital Label → /generate`, secondary `See how it works →` (scrolls to How it works). Split hero: copy left, mock label preview card right (uses existing slate/risk tokens).
-3. **Problem section** — H2 "Right now, UK labelling is broken…" rendered as a two-column comparison table (Current reality vs With Labelring), 4 rows from the PDF. Red-tinted left column, green-tinted right column using existing `--risk-high-bg` / `--risk-low-bg` tokens.
-4. **Who it's for** — 3 cards: Food & FMCG, Cosmetics & Wellness, Importers & Distributors. Emoji + heading + description from PDF.
-5. **Regulation section** — H2 "Four regulatory waves. One platform built for all of them." 4 cards in a 2×2 grid: PRMA 2025, EPR, EU DPP, HFSS & Cosmetics. Each card has a "in force from…" pill.
-6. **How it works** — keep existing 3-step block (Upload → Scan → Review), retargeted copy.
-7. **Early Access section** — H2 + subtext from PDF. Form: Name, Work email, Company, Product category (dropdown: Food & Drink / Cosmetics & Wellness / Jewellery & Accessories / Import & Distribution / Other). Zod-validated, submits to Supabase.
-8. **Footer** — © 2026 Labelring Ltd. Registered in England and Wales. Company No. 16816508. LinkedIn + Instagram icons. "Built in the UK · Compliant with UK GDPR".
+**Delete `src/components/AppSidebar.tsx`** — no longer used (workspace has its own `WorkspaceSidebar`).
 
-## Backend
+**Create `src/components/PillNav.tsx`** — desktop floating pill component (logo dot + links + CTA), uses `NavLink` for active state.
 
-New table `early_access_signups`:
+**Create `src/components/BottomTabBar.tsx`** — mobile bottom tabs, 4 items, active pill highlight.
 
-- `name text`, `email text`, `company text`, `product_category text`
-- `created_at timestamptz default now()`
-- RLS on. Policy: anyone (anon + authenticated) can INSERT; only service_role can SELECT (form is public, submissions private).
-- Grants: `GRANT INSERT ON public.early_access_signups TO anon, authenticated; GRANT ALL TO service_role;` (no SELECT to anon/authenticated).
-- Client-side zod validation (name 1–100, email valid + ≤255, company 1–200, category enum).
+### Design tokens (reuse existing)
+- `bg-card`, `border`, `text-sidebar-primary` for brand, `bg-accent`/`text-accent-foreground` for active states. No new colors, no purple.
 
-## Visual language
+### Out of scope
+- Workspace layout untouched (its sidebar is appropriate for 10+ grouped items).
+- Landing page content untouched.
+- No backend changes.
 
-- Slate base (`bg-background`, `bg-card`, `border`), existing `--risk-*` tokens for status/comparison accents. No new colors, no purple.
-- Hero uses a soft gradient wash of `--muted` behind the copy; a mocked "Live compliance score" card floats on the right (static, echoes `ComplianceScoreBadge`).
-- Comparison table: two stacked cards on mobile, side-by-side on md+. Icons: `XCircle` for reality, `CheckCircle2` for Labelring.
-- Regulation cards: `border-l-2 border-primary` accent, small "Jan 2026" style pill.
-- Micro-motion: framer-motion fade/slide-in on section enter (already used on page).
-
-## Files touched
-
-- `index.html` — meta title + description.
-- `src/pages/LandingPage.tsx` — full rewrite.
-- `src/components/landing/EarlyAccessForm.tsx` — new, zod + supabase insert.
-- `src/components/landing/ComparisonTable.tsx` — new.
-- `src/components/landing/RegulationCards.tsx` — new.
-- `src/components/landing/LandingFooter.tsx` — new.
-- Migration: create `early_access_signups` with grants + RLS + insert-only policy.
-
-## Out of scope (from the PDF, deferred)
-
-- Sitemap.xml / robots.txt / SoftwareApplication schema / `/blog` route / PageSpeed work — flagged in the PDF as "Part 2 SEO fixes" but separate from the homepage redesign. I can tackle these next in a follow-up if you want.
-- Workspace home tab stays unchanged.
+### Verification
+- Playwright screenshots at 1280px and 390px widths confirming nav doesn't overlap hero content and all links reachable.

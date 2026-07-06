@@ -124,6 +124,17 @@ const ScanUploadPage = () => {
     </motion.div>
   );
 
+  const leadDialog = (
+    <LeadCaptureDialog
+      open={leadOpen}
+      onOpenChange={setLeadOpen}
+      onSuccess={proceedToScan}
+      source="scan"
+      title="Unlock your scan"
+      description="Tell us who you are and we'll analyse your label."
+    />
+  );
+
   // Mobile layout: big action buttons first, no scrolling needed
   if (isMobile) {
     return (
@@ -177,6 +188,7 @@ const ScanUploadPage = () => {
             <p className="text-xs text-muted-foreground text-center mt-2">Supports JPG, PNG, PDF</p>
           </motion.div>
         )}
+        {leadDialog}
       </div>
     );
   }

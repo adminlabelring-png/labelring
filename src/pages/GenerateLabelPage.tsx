@@ -38,7 +38,8 @@ import { getLeadId } from "@/lib/lead-tracker";
 import LivePreview from "@/components/generator/LivePreview";
 import ComplianceCheck from "@/components/generator/ComplianceCheck";
 
-const CATEGORIES = ["Food", "Beverage", "Supplement", "Skincare", "Household", "Other"];
+import { CATEGORIES } from "@/lib/categories";
+import LeadCaptureDialog, { hasSubmittedLead } from "@/components/LeadCaptureDialog";
 
 const NUTRITION_ROWS: { key: keyof NutritionTable; label: string; placeholder: string }[] = [
   { key: "energyKj", label: "Energy (kJ)", placeholder: "1234" },
@@ -60,6 +61,17 @@ const GenerateLabelPage = () => {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [leadOpen, setLeadOpen] = useState(false);
+  const pendingActionRef = useRef<null | (() => void)>(null);
+
+  const requireLead = (action: () => void) => {
+    if (hasSubmittedLead()) {
+      action();
+      return;
+    }
+    pendingActionRef.current = action;
+    setLeadOpen(true);
+  };
 
   const set = <K extends keyof LabelFields>(k: K, v: LabelFields[K]) =>
     setFields((f) => ({ ...f, [k]: v }));

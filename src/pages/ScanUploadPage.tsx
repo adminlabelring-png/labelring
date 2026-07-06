@@ -266,6 +266,7 @@ const ScanUploadPage = () => {
           Take Photo
         </Button>
       </motion.div>
+      {leadDialog}
     </div>
   );
 };

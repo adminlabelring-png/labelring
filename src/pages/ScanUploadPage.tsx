@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useScan } from "@/lib/scan-context";
 import { useIsMobile } from "@/hooks/use-mobile";
+import LeadCaptureDialog, { hasSubmittedLead } from "@/components/LeadCaptureDialog";
 
 const ACCEPTED = ".jpg,.jpeg,.png,.pdf";
 const SEASON_TAGS = ["Christmas", "Diwali", "Easter", "Summer", "Promo Pack", "Limited Edition"];
@@ -19,6 +20,7 @@ const ScanUploadPage = () => {
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [leadOpen, setLeadOpen] = useState(false);
 
   const handleFile = useCallback((file: File) => {
     setSelectedFile(file);
@@ -42,10 +44,19 @@ const ScanUploadPage = () => {
     if (f) handleFile(f);
   }, [handleFile]);
 
-  const startScan = () => {
+  const proceedToScan = () => {
     if (!selectedFile) return;
     setFile(selectedFile);
     navigate("/scan/processing");
+  };
+
+  const startScan = () => {
+    if (!selectedFile) return;
+    if (hasSubmittedLead()) {
+      proceedToScan();
+    } else {
+      setLeadOpen(true);
+    }
   };
 
   const clear = () => {

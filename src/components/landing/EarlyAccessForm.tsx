@@ -14,25 +14,14 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-const CATEGORIES = [
-  { value: "food_drink", label: "Food & Drink" },
-  { value: "cosmetics_wellness", label: "Cosmetics & Wellness" },
-  { value: "jewellery_accessories", label: "Jewellery & Accessories" },
-  { value: "import_distribution", label: "Import & Distribution" },
-  { value: "other", label: "Other" },
-] as const;
+import { CATEGORIES } from "@/lib/categories";
+import { markLeadSubmitted } from "@/components/LeadCaptureDialog";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Please enter your name").max(100),
   email: z.string().trim().email("Please enter a valid work email").max(255),
   company: z.string().trim().min(1, "Please enter your company").max(200),
-  product_category: z.enum([
-    "food_drink",
-    "cosmetics_wellness",
-    "jewellery_accessories",
-    "import_distribution",
-    "other",
-  ]),
+  product_category: z.enum(CATEGORIES as unknown as [string, ...string[]]),
 });
 
 const EarlyAccessForm = () => {
@@ -80,6 +69,7 @@ const EarlyAccessForm = () => {
       });
       return;
     }
+    markLeadSubmitted();
     setDone(true);
     toast({
       title: "You're on the list",
@@ -149,8 +139,8 @@ const EarlyAccessForm = () => {
             </SelectTrigger>
             <SelectContent>
               {CATEGORIES.map((c) => (
-                <SelectItem key={c.value} value={c.value}>
-                  {c.label}
+                <SelectItem key={c} value={c}>
+                  {c}
                 </SelectItem>
               ))}
             </SelectContent>

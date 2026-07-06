@@ -38,7 +38,8 @@ import { getLeadId } from "@/lib/lead-tracker";
 import LivePreview from "@/components/generator/LivePreview";
 import ComplianceCheck from "@/components/generator/ComplianceCheck";
 
-const CATEGORIES = ["Food", "Beverage", "Supplement", "Skincare", "Household", "Other"];
+import { CATEGORIES } from "@/lib/categories";
+import LeadCaptureDialog, { hasSubmittedLead } from "@/components/LeadCaptureDialog";
 
 const NUTRITION_ROWS: { key: keyof NutritionTable; label: string; placeholder: string }[] = [
   { key: "energyKj", label: "Energy (kJ)", placeholder: "1234" },
@@ -60,6 +61,17 @@ const GenerateLabelPage = () => {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [leadOpen, setLeadOpen] = useState(false);
+  const pendingActionRef = useRef<null | (() => void)>(null);
+
+  const requireLead = (action: () => void) => {
+    if (hasSubmittedLead()) {
+      action();
+      return;
+    }
+    pendingActionRef.current = action;
+    setLeadOpen(true);
+  };
 
   const set = <K extends keyof LabelFields>(k: K, v: LabelFields[K]) =>
     setFields((f) => ({ ...f, [k]: v }));
@@ -670,7 +682,7 @@ const GenerateLabelPage = () => {
           <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
-              onClick={handleCopyQr}
+              onClick={() => requireLead(handleCopyQr)}
               disabled={saving || !hasAnyData}
               className="h-auto flex-col gap-1 py-3"
             >
@@ -679,7 +691,7 @@ const GenerateLabelPage = () => {
             </Button>
             <Button
               variant="outline"
-              onClick={handleExport}
+              onClick={() => requireLead(handleExport)}
               disabled={!hasAnyData}
               className="h-auto flex-col gap-1 py-3"
             >
@@ -688,7 +700,7 @@ const GenerateLabelPage = () => {
             </Button>
             <Button
               variant="outline"
-              onClick={handleShare}
+              onClick={() => requireLead(handleShare)}
               disabled={saving || !hasAnyData}
               className="h-auto flex-col gap-1 py-3"
             >
@@ -729,6 +741,23 @@ const GenerateLabelPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <LeadCaptureDialog
+        open={leadOpen}
+        onOpenChange={(o) => {
+          setLeadOpen(o);
+          if (!o) pendingActionRef.current = null;
+        }}
+        onSuccess={() => {
+          const action = pendingActionRef.current;
+          pendingActionRef.current = null;
+          action?.();
+        }}
+        defaultCategory={fields.category || undefined}
+        source="generate"
+        title="Unlock your label"
+        description="Tell us who you are and we'll generate and save your label."
+      />
     </div>
   );
 };

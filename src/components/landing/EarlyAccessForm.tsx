@@ -69,6 +69,7 @@ const EarlyAccessForm = () => {
       });
       return;
     }
+    markLeadSubmitted();
     setDone(true);
     toast({
       title: "You're on the list",

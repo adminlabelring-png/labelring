@@ -741,6 +741,23 @@ const GenerateLabelPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <LeadCaptureDialog
+        open={leadOpen}
+        onOpenChange={(o) => {
+          setLeadOpen(o);
+          if (!o) pendingActionRef.current = null;
+        }}
+        onSuccess={() => {
+          const action = pendingActionRef.current;
+          pendingActionRef.current = null;
+          action?.();
+        }}
+        defaultCategory={fields.category || undefined}
+        source="generate"
+        title="Unlock your label"
+        description="Tell us who you are and we'll generate and save your label."
+      />
     </div>
   );
 };

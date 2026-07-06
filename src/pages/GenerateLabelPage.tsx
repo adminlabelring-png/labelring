@@ -682,7 +682,7 @@ const GenerateLabelPage = () => {
           <div className="grid grid-cols-3 gap-2">
             <Button
               variant="outline"
-              onClick={handleCopyQr}
+              onClick={() => requireLead(handleCopyQr)}
               disabled={saving || !hasAnyData}
               className="h-auto flex-col gap-1 py-3"
             >
@@ -691,7 +691,7 @@ const GenerateLabelPage = () => {
             </Button>
             <Button
               variant="outline"
-              onClick={handleExport}
+              onClick={() => requireLead(handleExport)}
               disabled={!hasAnyData}
               className="h-auto flex-col gap-1 py-3"
             >
@@ -700,7 +700,7 @@ const GenerateLabelPage = () => {
             </Button>
             <Button
               variant="outline"
-              onClick={handleShare}
+              onClick={() => requireLead(handleShare)}
               disabled={saving || !hasAnyData}
               className="h-auto flex-col gap-1 py-3"
             >

@@ -1,19 +1,17 @@
-## Problem
+Replace all em dashes (—) and en dashes (–) in the landing-page copy with commas or periods so the text reads cleanly without dash punctuation.
 
-The lead-capture dialog fails with "Something went wrong" because the `early_access_signups` INSERT policy's `WITH CHECK` still whitelists the old category slugs (`food_drink`, `cosmetics_wellness`, `jewellery_accessories`, `import_distribution`, `other`). The unified form now sends the rule-pack labels (`Food`, `Beverage`, `Supplement`, `Skincare`, `Household`, `Other`), so every insert is rejected by RLS.
+Affected files and changes:
+- `src/pages/LandingPage.tsx`
+  - Hero subtitle: "regulations — all in one place" → "regulations, all in one place"
+  - Audience card: "HFSS classification — all managed in one place" → "HFSS classification, all managed in one place"
+- `src/components/landing/ComparisonTable.tsx`
+  - "Trading Standards — no single source of truth" → "Trading Standards, no single source of truth"
+  - "inspections — or worse, a product recall" → "inspections, or worse, a product recall"
+  - "ESPR — four regulatory waves" → "ESPR, four regulatory waves"
+  - "day one — DPP export" → "day one. DPP export"
+- `src/components/landing/EarlyAccessForm.tsx`
+  - Success heading: "Thanks — you're on the list." → "Thanks, you're on the list."
+- `src/components/landing/RegulationCards.tsx`
+  - Date range: "2026–2030" → "2026 to 2030"
 
-## Fix
-
-**1. Migration** — replace the INSERT policy on `public.early_access_signups`:
-- Drop `"Anyone can submit early access signup"`.
-- Recreate with the same length checks but update the category whitelist to `('Food','Beverage','Supplement','Skincare','Household','Other')`.
-- Keep roles `anon, authenticated`; no other policy or grant changes.
-
-**2. Email label copy** — accept any email, not just work email:
-- `src/components/LeadCaptureDialog.tsx`: label "Work email" → "Email"; zod message "Please enter a valid work email" → "Please enter a valid email".
-- `src/components/landing/EarlyAccessForm.tsx`: same two changes.
-- Validation stays `z.string().email()` (already accepts any email domain).
-
-## Out of scope
-
-No schema changes, no changes to already-stored rows, no UI restructuring beyond the label text.
+Decorative middle dots (·) in badges and the footer are not dashes and will be left unchanged.

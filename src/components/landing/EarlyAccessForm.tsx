@@ -83,7 +83,7 @@ const EarlyAccessForm = () => {
         <div className="mx-auto h-12 w-12 rounded-full bg-[hsl(var(--risk-low-bg))] flex items-center justify-center">
           <CheckCircle2 className="h-6 w-6 text-[hsl(var(--risk-low))]" />
         </div>
-        <h3 className="font-semibold text-lg">Thanks — you're on the list.</h3>
+        <h3 className="font-semibold text-lg">Thanks, you're on the list.</h3>
         <p className="text-sm text-muted-foreground max-w-sm mx-auto">
           We'll reach out with onboarding details and a compliance audit of your existing labels.
         </p>

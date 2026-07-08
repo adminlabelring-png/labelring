@@ -18,7 +18,7 @@ const regulations = [
     icon: QrCode,
     pill: "Phasing in 2026 to 2030",
     title: "EU Digital Product Passport (DPP)",
-    body: "Brands selling into the EU will need a machine-readable product record linked to the EU registry. Labelring is the infrastructure layer that makes this possible — and exportable in one click.",
+    body: "Brands selling into the EU will need a machine-readable product record linked to the EU registry. Labelring is the infrastructure layer that makes this possible, and exportable in one click.",
   },
   {
     icon: AlertTriangle,

@@ -42,7 +42,7 @@ export const markLeadSubmitted = () => {
 
 const schema = z.object({
   name: z.string().trim().min(1, "Please enter your name").max(100),
-  email: z.string().trim().email("Please enter a valid work email").max(255),
+  email: z.string().trim().email("Please enter a valid email").max(255),
   company: z.string().trim().min(1, "Please enter your company").max(200),
   product_category: z.enum(CATEGORIES as unknown as [string, ...string[]]),
 });
@@ -138,7 +138,7 @@ const LeadCaptureDialog = ({
             {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="lc-email">Work email</Label>
+            <Label htmlFor="lc-email">Email</Label>
             <Input
               id="lc-email"
               type="email"

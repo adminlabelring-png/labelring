@@ -2,7 +2,7 @@ import { XCircle, CheckCircle2 } from "lucide-react";
 
 const rows: [string, string][] = [
   [
-    "Brand researches requirements across FSA, OPSS, and Trading Standards — no single source of truth.",
+    "Brand researches requirements across FSA, OPSS, and Trading Standards, no single source of truth.",
     "One dashboard. Every compliance requirement for your category, pre-mapped and kept current as regulations change.",
   ],
   [
@@ -10,12 +10,12 @@ const rows: [string, string][] = [
     "Barcode lookup pulls known data from GS1 and Open Food Facts. You fill the gaps, not the whole form.",
   ],
   [
-    "Brands discover non-compliance during Trading Standards inspections — or worse, a product recall.",
+    "Brands discover non-compliance during Trading Standards inspections, or worse, a product recall.",
     "Live compliance score surfaces gaps before your label goes to print or gets pulled off a shelf.",
   ],
   [
-    "EPR, DPP, HFSS, ESPR — four regulatory waves hitting simultaneously in 2026. Most brands aren't ready.",
-    "Labelring is engineered around 2026 requirements from day one — DPP export, EPR recycling labels, HFSS classification, all built in.",
+    "EPR, DPP, HFSS, ESPR, four regulatory waves hitting simultaneously in 2026. Most brands aren't ready.",
+    "Labelring is engineered around 2026 requirements from day one. DPP export, EPR recycling labels, HFSS classification, all built in.",
   ],
 ];
 

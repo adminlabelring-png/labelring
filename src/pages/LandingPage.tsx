@@ -18,7 +18,7 @@ const audiences = [
   {
     emoji: "🍱",
     title: "Food & FMCG",
-    body: "Allergen declarations, ingredient lists, nutritional data, HFSS classification — all managed in one place.",
+    body: "Allergen declarations, ingredient lists, nutritional data, HFSS classification, all managed in one place.",
   },
   {
     emoji: "💄",
@@ -75,7 +75,7 @@ const LandingPage = () => {
               Your shortcut to compliant products.
             </h1>
             <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
-              Create digital labels, manage product data, and stay ahead of changing regulations — all in one place.
+              Create digital labels, manage product data, and stay ahead of changing regulations, all in one place.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <Link to="/generate">

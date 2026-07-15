@@ -1,18 +1,6 @@
-# Welcome to your Lovable project
-
-## Project info
-
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+# Labelring
 
 ## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
 
 **Use your preferred IDE**
 
@@ -60,14 +48,25 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
-## How can I deploy this project?
+## Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+The frontend is a static Vite/React app hosted on **GitHub Pages**; the backend is **Supabase** (Postgres + Auth + Storage + Edge Functions).
 
-## Can I connect a custom domain to my Lovable project?
+- Pushing to `main` triggers `.github/workflows/deploy-pages.yml`, which builds the app and publishes `dist/` to GitHub Pages.
+- Pushing changes under `supabase/` triggers `.github/workflows/supabase-deploy.yml`, which runs `supabase db push` and deploys the edge functions (`analyze-label`, `generate-label`) to the linked Supabase project.
 
-Yes, you can!
+### Required GitHub Actions secrets
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+| Secret | Purpose |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Supabase project URL, used at build time |
+| `VITE_SUPABASE_PROJECT_ID` | Supabase project ref |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/publishable key (public-safe) |
+| `SUPABASE_ACCESS_TOKEN` | Supabase management API token, used by the CLI to link/push/deploy |
+| `SUPABASE_PROJECT_ID` | Supabase project ref (same value as above) |
+| `SUPABASE_DB_PASSWORD` | Database password, needed for `supabase db push` |
+| `LOVABLE_API_KEY` | AI gateway key used by the `analyze-label`/`generate-label` edge functions |
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### GitHub Pages settings
+
+In the repo's **Settings → Pages**, set the source to "GitHub Actions". If serving from a project page (`https://<user>.github.io/labelring/`), the Vite `base` is already set to `/labelring/` when `GITHUB_PAGES=true` (set by the workflow). If you switch to a custom domain or a user/organization page instead, update `base` in `vite.config.ts` accordingly.

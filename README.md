@@ -65,7 +65,7 @@ The frontend is a static Vite/React app hosted on **GitHub Pages**; the backend 
 | `SUPABASE_ACCESS_TOKEN` | Supabase management API token, used by the CLI to link/push/deploy |
 | `SUPABASE_PROJECT_ID` | Supabase project ref (same value as above) |
 | `SUPABASE_DB_PASSWORD` | Database password, needed for `supabase db push` |
-| `LOVABLE_API_KEY` | AI gateway key used by the `analyze-label`/`generate-label` edge functions |
+| `OPENROUTER_API_KEY` | OpenRouter API key used by the `analyze-label`/`generate-label` edge functions |
 
 ### GitHub Pages settings
 

@@ -31,5 +31,5 @@ jobs:
         run: supabase functions deploy analyze-label generate-label --project-ref "$SUPABASE_PROJECT_ID"
 
       - name: Set edge function secrets
-        if: ${{ secrets.LOVABLE_API_KEY != '' }}
-        run: supabase secrets set LOVABLE_API_KEY="${{ secrets.LOVABLE_API_KEY }}" --project-ref "$SUPABASE_PROJECT_ID"
+        if: ${{ secrets.OPENROUTER_API_KEY != '' }}
+        run: supabase secrets set OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" --project-ref "$SUPABASE_PROJECT_ID"

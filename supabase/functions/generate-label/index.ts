@@ -189,13 +189,15 @@ function pickPreviewSystem(pack: Pack): string {
 }
 
 async function callAI(system: string, user: string) {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) throw new Error("LOVABLE_API_KEY not configured");
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const key = Deno.env.get("OPENROUTER_API_KEY");
+  if (!key) throw new Error("OPENROUTER_API_KEY not configured");
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
+      "HTTP-Referer": "https://labelring.com",
+      "X-Title": "Labelring",
     },
     body: JSON.stringify({
       model: MODEL,

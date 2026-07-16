@@ -188,7 +188,7 @@ function pickPreviewSystem(pack: Pack): string {
   return GENERIC_PREVIEW_SYSTEM;
 }
 
-async function callAI(system: string, user: string) {
+async function callOpenRouter(system: string, user: string) {
   const key = Deno.env.get("OPENROUTER_API_KEY");
   if (!key) throw new Error("OPENROUTER_API_KEY not configured");
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -209,13 +209,45 @@ async function callAI(system: string, user: string) {
   });
   if (!res.ok) {
     const t = await res.text();
-    console.error("AI gateway error", res.status, t);
+    console.error("OpenRouter error", res.status, t);
     if (res.status === 429) throw new Error("RATE_LIMIT");
     if (res.status === 402) throw new Error("CREDITS");
     throw new Error("AI_FAILED");
   }
   const json = await res.json();
   return (json.choices?.[0]?.message?.content ?? "").trim();
+}
+
+async function callGemini(system: string, user: string) {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) throw new Error("GEMINI_API_KEY not configured");
+  const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: user }] }],
+      }),
+    }
+  );
+  if (!res.ok) {
+    const t = await res.text();
+    console.error("Gemini error", res.status, t);
+    if (res.status === 429) throw new Error("RATE_LIMIT");
+    if (res.status === 402) throw new Error("CREDITS");
+    throw new Error("AI_FAILED");
+  }
+  const json = await res.json();
+  return (json.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
+}
+
+async function callAI(system: string, user: string) {
+  const provider = (Deno.env.get("AI_PROVIDER") || "openrouter").toLowerCase();
+  if (provider === "gemini") return callGemini(system, user);
+  return callOpenRouter(system, user);
 }
 
 Deno.serve(async (req) => {

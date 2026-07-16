@@ -49,17 +49,103 @@ You MUST respond with ONLY valid JSON matching this exact schema (no markdown, n
     }
   ]
 }`;
+
+class AIError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function callOpenRouter(system: string, userText: string, mimeType: string, imageBase64: string) {
+  const key = Deno.env.get("OPENROUTER_API_KEY");
+  if (!key) throw new Error("OPENROUTER_API_KEY is not configured");
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://labelring.com",
+      "X-Title": "Labelring",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: system },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: userText },
+            { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("OpenRouter error:", response.status, errorText);
+    throw new AIError(response.status, `OpenRouter request failed (${response.status})`);
+  }
+
+  const json = await response.json();
+  const content = json.choices?.[0]?.message?.content;
+  if (!content) throw new Error("No content in OpenRouter response");
+  return content;
+}
+
+async function callGemini(system: string, userText: string, mimeType: string, imageBase64: string) {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) throw new Error("GEMINI_API_KEY is not configured");
+
+  const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: userText },
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+            ],
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Gemini error:", response.status, errorText);
+    throw new AIError(response.status, `Gemini request failed (${response.status})`);
+  }
+
+  const json = await response.json();
+  const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) throw new Error("No content in Gemini response");
+  return content;
+}
+
+async function callAI(system: string, userText: string, mimeType: string, imageBase64: string) {
+  const provider = (Deno.env.get("AI_PROVIDER") || "openrouter").toLowerCase();
+  if (provider === "gemini") return callGemini(system, userText, mimeType, imageBase64);
+  return callOpenRouter(system, userText, mimeType, imageBase64);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) {
-      throw new Error("OPENROUTER_API_KEY is not configured");
-    }
-
     const { imageBase64, fileName, isSeasonal, seasonTag } = await req.json();
 
     if (!imageBase64) {
@@ -79,65 +165,31 @@ serve(async (req) => {
     else if (imageBase64.startsWith("iVBOR")) mimeType = "image/png";
     else if (imageBase64.startsWith("JVBER")) mimeType = "application/pdf";
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://labelring.com",
-        "X-Title": "Labelring",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT + seasonalAddendum },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analyze this product label image. File name: ${fileName || "unknown"}. Extract all fields and return JSON only.`,
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${imageBase64}`,
-                },
-              },
-            ],
-          },
-        ],
-      }),
-    });
+    const userText = `Analyze this product label image. File name: ${fileName || "unknown"}. Extract all fields and return JSON only.`;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-
-      if (response.status === 429) {
+    let content: string;
+    try {
+      content = await callAI(SYSTEM_PROMPT + seasonalAddendum, userText, mimeType, imageBase64);
+    } catch (e) {
+      if (e instanceof AIError) {
+        if (e.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (e.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "AI credits exhausted. Please add funds." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "AI analysis failed" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add funds." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ error: "AI analysis failed" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No content in AI response");
+      throw e;
     }
 
     // Parse the JSON from the AI response (strip markdown fences if present)

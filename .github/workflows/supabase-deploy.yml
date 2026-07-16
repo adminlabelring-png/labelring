@@ -17,19 +17,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: supabase/setup-cli@v1
+      - uses: actions/setup-node@v4
         with:
-          version: latest
+          node-version: 20
 
       - name: Link project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+        run: npx -y supabase@latest link --project-ref "$SUPABASE_PROJECT_ID"
 
       - name: Push database migrations
-        run: supabase db push
+        run: npx -y supabase@latest db push
 
       - name: Deploy edge functions
-        run: supabase functions deploy analyze-label generate-label --project-ref "$SUPABASE_PROJECT_ID"
+        run: npx -y supabase@latest functions deploy analyze-label generate-label --project-ref "$SUPABASE_PROJECT_ID"
 
       - name: Set edge function secrets
         if: ${{ secrets.OPENROUTER_API_KEY != '' }}
-        run: supabase secrets set OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" --project-ref "$SUPABASE_PROJECT_ID"
+        run: npx -y supabase@latest secrets set OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}" --project-ref "$SUPABASE_PROJECT_ID"

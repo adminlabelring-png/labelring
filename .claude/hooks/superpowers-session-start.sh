@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# SessionStart hook: surfaces the superpowers skill index at the start of
+# every session in this repo. Adapted from obra/superpowers' plugin hook to
+# work as a plain project-level hook (path-relative instead of
+# CLAUDE_PLUGIN_ROOT-relative, since this is a manual skills install, not a
+# marketplace plugin install).
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+using_superpowers_content=$(cat "${REPO_ROOT}/.claude/skills/superpowers/using-superpowers/SKILL.md" 2>&1 || echo "Error reading using-superpowers skill")
+
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+using_superpowers_escaped=$(escape_for_json "$using_superpowers_content")
+session_context="<EXTREMELY_IMPORTANT>\nYou have superpowers.\n\n**Below is the full content of your 'superpowers:using-superpowers' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_superpowers_escaped}\n</EXTREMELY_IMPORTANT>"
+
+printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+
+exit 0

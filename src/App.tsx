@@ -13,6 +13,8 @@ import AdminLeadsPage from "@/pages/AdminLeadsPage";
 import ProductHistoryPage from "@/pages/ProductHistoryPage";
 import GenerateLabelPage from "@/pages/GenerateLabelPage";
 import PublicLabelPage from "@/pages/PublicLabelPage";
+import InsightsPage from "@/pages/InsightsPage";
+import InsightPostPage from "@/pages/InsightPostPage";
 import NotFound from "@/pages/NotFound";
 import { LeadTracker } from "@/lib/lead-tracker";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
@@ -46,6 +48,8 @@ const App = () => (
               <Route path="/admin/leads" element={<AdminLeadsPage />} />
               <Route path="/admin/products/:productKey" element={<ProductHistoryPage />} />
               <Route path="/generate" element={<GenerateLabelPage />} />
+              <Route path="/insights" element={<InsightsPage />} />
+              <Route path="/insights/:slug" element={<InsightPostPage />} />
             </Route>
             <Route path="/label/:id" element={<PublicLabelPage />} />
             <Route element={<WorkspaceLayout />}>

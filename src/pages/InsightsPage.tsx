@@ -27,6 +27,9 @@ interface Insight {
   body: string;
   background_image_url: string | null;
   author_name: string | null;
+  author_twitter_url: string | null;
+  author_linkedin_url: string | null;
+  author_facebook_url: string | null;
   published: boolean;
   created_at: string;
   updated_at: string;
@@ -46,6 +49,9 @@ const emptyForm = {
   excerpt: "",
   body: "",
   author_name: "",
+  author_twitter_url: "",
+  author_linkedin_url: "",
+  author_facebook_url: "",
   published: false,
   imageFile: null as File | null,
   existingImageUrl: null as string | null,
@@ -55,6 +61,7 @@ const InsightsPage = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showSignIn, setShowSignIn] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
@@ -78,7 +85,11 @@ const InsightsPage = () => {
     return () => URL.revokeObjectURL(url);
   }, [form.imageFile]);
 
-  const isAdmin = !!session;
+  const isAuthor = !!session;
+  const authorDisplayName =
+    (session?.user.user_metadata?.display_name as string | undefined) ||
+    session?.user.email?.split("@")[0] ||
+    "";
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -109,10 +120,18 @@ const InsightsPage = () => {
     setAuthSubmitting(true);
     try {
       if (authMode === "signup") {
+        if (!name.trim()) {
+          toast.error("Please enter your name");
+          setAuthSubmitting(false);
+          return;
+        }
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/insights` },
+          options: {
+            emailRedirectTo: `${window.location.origin}/insights`,
+            data: { display_name: name.trim() },
+          },
         });
         if (error) throw error;
         toast.success("Account created — you're signed in.");
@@ -121,6 +140,7 @@ const InsightsPage = () => {
         if (error) throw error;
       }
       setShowSignIn(false);
+      setName("");
       setEmail("");
       setPassword("");
     } catch (err: any) {
@@ -135,7 +155,7 @@ const InsightsPage = () => {
   };
 
   const openNewPost = () => {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, author_name: authorDisplayName });
     setFormOpen(true);
   };
 
@@ -147,6 +167,9 @@ const InsightsPage = () => {
       excerpt: post.excerpt ?? "",
       body: post.body,
       author_name: post.author_name ?? "",
+      author_twitter_url: post.author_twitter_url ?? "",
+      author_linkedin_url: post.author_linkedin_url ?? "",
+      author_facebook_url: post.author_facebook_url ?? "",
       published: post.published,
       imageFile: null,
       existingImageUrl: post.background_image_url,
@@ -188,6 +211,9 @@ const InsightsPage = () => {
         excerpt: form.excerpt.trim() || null,
         body: form.body,
         author_name: form.author_name.trim() || null,
+        author_twitter_url: form.author_twitter_url.trim() || null,
+        author_linkedin_url: form.author_linkedin_url.trim() || null,
+        author_facebook_url: form.author_facebook_url.trim() || null,
         background_image_url: backgroundImageUrl,
         published: form.published,
         updated_at: new Date().toISOString(),
@@ -228,7 +254,7 @@ const InsightsPage = () => {
   };
 
   const publicPosts = posts.filter((p) => p.published);
-  const visiblePosts = isAdmin ? posts : publicPosts;
+  const visiblePosts = isAuthor ? posts : publicPosts;
 
   return (
     <div className="space-y-10 pb-4">
@@ -240,7 +266,7 @@ const InsightsPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin ? (
+          {isAuthor ? (
             <>
               <Button onClick={openNewPost} className="gap-2">
                 <Plus className="h-4 w-4" /> New post
@@ -252,22 +278,35 @@ const InsightsPage = () => {
           ) : (
             !authLoading && (
               <Button variant="outline" size="sm" onClick={() => setShowSignIn((v) => !v)}>
-                Admin
+                Author
               </Button>
             )
           )}
         </div>
       </div>
 
-      {!isAdmin && showSignIn && (
+      {!isAuthor && showSignIn && (
         <Card className="max-w-sm p-5 space-y-3">
           <div className="space-y-1">
-            <h2 className="text-sm font-semibold">Admin sign in</h2>
+            <h2 className="text-sm font-semibold">Author sign in</h2>
             <p className="text-xs text-muted-foreground">
-              {authMode === "signin" ? "Sign in to manage posts." : "Create the first admin account."}
+              {authMode === "signin" ? "Sign in to manage posts." : "Create your author account."}
             </p>
           </div>
           <form onSubmit={handleAuth} className="space-y-3">
+            {authMode === "signup" && (
+              <div className="space-y-1">
+                <Label htmlFor="insights-name" className="text-xs">
+                  Your name
+                </Label>
+                <Input
+                  id="insights-name"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+            )}
             <div className="space-y-1">
               <Label htmlFor="insights-email" className="text-xs">
                 Email
@@ -339,7 +378,7 @@ const InsightsPage = () => {
                   <span className="text-xs text-muted-foreground">
                     {new Date(post.created_at).toLocaleDateString()}
                   </span>
-                  {isAdmin && (
+                  {isAuthor && (
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
@@ -415,6 +454,38 @@ const InsightsPage = () => {
                 value={form.author_name}
                 onChange={(e) => setForm((f) => ({ ...f, author_name: e.target.value }))}
               />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="post-author-twitter">Author X / Twitter URL</Label>
+                <Input
+                  id="post-author-twitter"
+                  type="url"
+                  placeholder="https://x.com/…"
+                  value={form.author_twitter_url}
+                  onChange={(e) => setForm((f) => ({ ...f, author_twitter_url: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="post-author-linkedin">Author LinkedIn URL</Label>
+                <Input
+                  id="post-author-linkedin"
+                  type="url"
+                  placeholder="https://linkedin.com/in/…"
+                  value={form.author_linkedin_url}
+                  onChange={(e) => setForm((f) => ({ ...f, author_linkedin_url: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="post-author-facebook">Author Facebook URL</Label>
+                <Input
+                  id="post-author-facebook"
+                  type="url"
+                  placeholder="https://facebook.com/…"
+                  value={form.author_facebook_url}
+                  onChange={(e) => setForm((f) => ({ ...f, author_facebook_url: e.target.value }))}
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="post-image" className="flex items-center gap-1.5">

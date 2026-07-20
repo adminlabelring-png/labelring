@@ -127,8 +127,8 @@ const GenerateLabelPage = () => {
         const p = await generatePreview(fields, pack);
         setPreview(p);
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "";
-        if (msg.includes("429")) {
+        const status = (e as { status?: number })?.status;
+        if (status === 429) {
           toast.error("Preview paused — AI rate limit. Retrying shortly.");
         }
       } finally {
@@ -148,10 +148,11 @@ const GenerateLabelPage = () => {
         const value = await suggestField(field, fields, pack);
         set(field, value);
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "";
-        if (msg.includes("429")) toast.error("Rate limit — try again in a moment.");
-        else if (msg.includes("402")) toast.error("AI credits exhausted.");
-        else toast.error("Couldn't generate suggestion");
+        const status = (e as { status?: number })?.status;
+        const message = e instanceof Error ? e.message : "";
+        if (status === 429) toast.error("Rate limit — try again in a moment.");
+        else if (status === 402) toast.error("AI credits exhausted.");
+        else toast.error(message || "Couldn't generate suggestion");
       } finally {
         setBusyField(null);
       }
@@ -165,8 +166,12 @@ const GenerateLabelPage = () => {
       const raw = await suggestField("nutrition" as keyof LabelFields, fields, pack);
       const parsed = JSON.parse(raw);
       set("nutrition", parsed as NutritionTable);
-    } catch {
-      toast.error("Couldn't suggest nutrition table");
+    } catch (e) {
+      const status = (e as { status?: number })?.status;
+      const message = e instanceof Error ? e.message : "";
+      if (status === 429) toast.error("Rate limit — try again in a moment.");
+      else if (status === 402) toast.error("AI credits exhausted.");
+      else toast.error(message || "Couldn't suggest nutrition table");
     } finally {
       setBusyField(null);
     }

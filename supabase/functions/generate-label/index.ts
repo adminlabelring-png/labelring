@@ -212,7 +212,7 @@ async function callOpenRouter(system: string, user: string) {
     console.error("OpenRouter error", res.status, t);
     if (res.status === 429) throw new Error("RATE_LIMIT");
     if (res.status === 402) throw new Error("CREDITS");
-    throw new Error("AI_FAILED");
+    throw new Error(`OpenRouter request failed (${res.status}): ${t.slice(0, 300)}`);
   }
   const json = await res.json();
   return (json.choices?.[0]?.message?.content ?? "").trim();
@@ -238,7 +238,7 @@ async function callGemini(system: string, user: string) {
     console.error("Gemini error", res.status, t);
     if (res.status === 429) throw new Error("RATE_LIMIT");
     if (res.status === 402) throw new Error("CREDITS");
-    throw new Error("AI_FAILED");
+    throw new Error(`Gemini request failed (${res.status}): ${t.slice(0, 300)}`);
   }
   const json = await res.json();
   return (json.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();

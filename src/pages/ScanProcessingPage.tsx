@@ -67,7 +67,20 @@ const ScanProcessingPage = () => {
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          // supabase-js only gives a generic message on error.message -- the
+          // real error text lives on error.context (the underlying Response).
+          const ctx = (error as { context?: Response }).context;
+          if (ctx && typeof ctx.json === "function") {
+            try {
+              const body = await ctx.clone().json();
+              throw new Error(typeof body?.error === "string" ? body.error : error.message);
+            } catch (parseErr) {
+              if (parseErr instanceof Error && parseErr.message !== error.message) throw parseErr;
+            }
+          }
+          throw error;
+        }
         if (data?.error) throw new Error(data.error);
 
         const result = buildScanResult(file.name, data);

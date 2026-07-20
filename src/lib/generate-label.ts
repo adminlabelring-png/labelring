@@ -1,6 +1,32 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { LabelFields, Pack } from "./label-rules";
 
+class GenerateLabelError extends Error {
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// supabase-js only gives a generic "Edge Function returned a non-2xx status
+// code" message on FunctionsHttpError; the real error text and status live
+// on error.context (the underlying Response). Pull both out so callers can
+// show what actually went wrong instead of a fallback string.
+async function toGenerateLabelError(error: unknown): Promise<GenerateLabelError> {
+  const ctx = (error as { context?: Response } | null)?.context;
+  if (ctx && typeof ctx.json === "function") {
+    try {
+      const body = await ctx.clone().json();
+      const message = typeof body?.error === "string" ? body.error : (error as Error).message;
+      return new GenerateLabelError(message, ctx.status);
+    } catch {
+      // response body wasn't JSON; fall through to the generic message
+    }
+  }
+  return new GenerateLabelError(error instanceof Error ? error.message : "Unknown error");
+}
+
 export async function suggestField(
   field: keyof LabelFields | "nutrition",
   fields: LabelFields,
@@ -9,9 +35,9 @@ export async function suggestField(
   const { data, error } = await supabase.functions.invoke("generate-label", {
     body: { mode: "field", field, fields, pack },
   });
-  if (error) throw error;
+  if (error) throw await toGenerateLabelError(error);
   const value = (data as { value?: string })?.value;
-  if (!value) throw new Error("No suggestion returned");
+  if (!value) throw new GenerateLabelError("No suggestion returned");
   return value;
 }
 
@@ -22,6 +48,6 @@ export async function generatePreview(
   const { data, error } = await supabase.functions.invoke("generate-label", {
     body: { mode: "preview", fields, pack },
   });
-  if (error) throw error;
+  if (error) throw await toGenerateLabelError(error);
   return (data as { preview?: string })?.preview ?? "";
 }

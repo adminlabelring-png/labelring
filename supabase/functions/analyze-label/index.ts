@@ -71,7 +71,7 @@ async function callOpenRouter(system: string, userText: string, mimeType: string
       "X-Title": "Labelring",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-flash-latest",
       messages: [
         { role: "system", content: system },
         {
@@ -101,7 +101,7 @@ async function callGemini(system: string, userText: string, mimeType: string, im
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY is not configured");
 
-  const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+  const model = Deno.env.get("GEMINI_MODEL") || "gemini-flash-latest";
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
     {

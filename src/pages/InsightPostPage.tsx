@@ -13,6 +13,9 @@ interface Insight {
   body: string;
   background_image_url: string | null;
   author_name: string | null;
+  author_twitter_url: string | null;
+  author_linkedin_url: string | null;
+  author_facebook_url: string | null;
   created_at: string;
 }
 
@@ -64,26 +67,11 @@ const InsightPostPage = () => {
     );
   }
 
-  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
-  const shareText = post.title;
-
-  const shareLinks = [
-    {
-      label: "Share on X",
-      icon: Twitter,
-      href: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`,
-    },
-    {
-      label: "Share on LinkedIn",
-      icon: Linkedin,
-      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
-    },
-    {
-      label: "Share on Facebook",
-      icon: Facebook,
-      href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
-    },
-  ];
+  const authorLinks = [
+    { label: `${post.author_name || "Author"} on X`, icon: Twitter, href: post.author_twitter_url },
+    { label: `${post.author_name || "Author"} on LinkedIn`, icon: Linkedin, href: post.author_linkedin_url },
+    { label: `${post.author_name || "Author"} on Facebook`, icon: Facebook, href: post.author_facebook_url },
+  ].filter((s): s is { label: string; icon: typeof Twitter; href: string } => !!s.href);
 
   return (
     <article className="pb-16">
@@ -134,20 +122,22 @@ const InsightPostPage = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {shareLinks.map((s) => (
-              <a
-                key={s.label}
-                href={s.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={s.label}
-                className="h-9 w-9 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
-              >
-                <s.icon className="h-4 w-4" />
-              </a>
-            ))}
-          </div>
+          {authorLinks.length > 0 && (
+            <div className="flex items-center gap-2">
+              {authorLinks.map((s) => (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={s.label}
+                  className="h-9 w-9 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+                >
+                  <s.icon className="h-4 w-4" />
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="prose prose-neutral dark:prose-invert max-w-none py-10">

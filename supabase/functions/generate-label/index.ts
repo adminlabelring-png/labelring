@@ -10,7 +10,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "google/gemini-flash-latest";
 
 type Pack = "food" | "cosmetic" | "generic";
 
@@ -221,7 +221,7 @@ async function callOpenRouter(system: string, user: string) {
 async function callGemini(system: string, user: string) {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY not configured");
-  const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+  const model = Deno.env.get("GEMINI_MODEL") || "gemini-flash-latest";
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
     {

@@ -88,7 +88,7 @@ async function callOpenRouter(system: string, userText: string, mimeType: string
   if (!response.ok) {
     const errorText = await response.text();
     console.error("OpenRouter error:", response.status, errorText);
-    throw new AIError(response.status, `OpenRouter request failed (${response.status})`);
+    throw new AIError(response.status, `OpenRouter request failed (${response.status}): ${errorText.slice(0, 300)}`);
   }
 
   const json = await response.json();
@@ -125,7 +125,7 @@ async function callGemini(system: string, userText: string, mimeType: string, im
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Gemini error:", response.status, errorText);
-    throw new AIError(response.status, `Gemini request failed (${response.status})`);
+    throw new AIError(response.status, `Gemini request failed (${response.status}): ${errorText.slice(0, 300)}`);
   }
 
   const json = await response.json();
@@ -185,7 +185,7 @@ serve(async (req) => {
           );
         }
         return new Response(
-          JSON.stringify({ error: "AI analysis failed" }),
+          JSON.stringify({ error: e.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

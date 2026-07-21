@@ -37,7 +37,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <ScanProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <LeadTracker />
           <Routes>
             <Route element={<AppLayout />}>

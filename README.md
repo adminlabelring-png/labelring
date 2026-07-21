@@ -69,4 +69,4 @@ The frontend is a static Vite/React app hosted on **GitHub Pages**; the backend 
 
 ### GitHub Pages settings
 
-In the repo's **Settings → Pages**, set the source to "GitHub Actions". If serving from a project page (`https://<user>.github.io/labelring/`), the Vite `base` is already set to `/labelring/` when `GITHUB_PAGES=true` (set by the workflow). If you switch to a custom domain or a user/organization page instead, update `base` in `vite.config.ts` accordingly.
+In the repo's **Settings → Pages**, set the source to "GitHub Actions". The site is served from the custom domain `www.labelring.co.uk` at the root, so the Vite `base` in `vite.config.ts` is `/`. If you ever move back to the default project-page URL (`https://<user>.github.io/labelring/`) instead of a custom domain, `base` needs to become `/labelring/` again.

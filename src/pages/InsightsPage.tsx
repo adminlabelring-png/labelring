@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import MarkdownEditor from "@/components/MarkdownEditor";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -438,13 +439,13 @@ const InsightsPage = () => {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="post-body">Body (Markdown)</Label>
-              <Textarea
+              <Label htmlFor="post-body">Body</Label>
+              <MarkdownEditor
                 id="post-body"
-                rows={10}
-                className="font-mono text-sm"
+                rows={14}
                 value={form.body}
-                onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
+                onChange={(body) => setForm((f) => ({ ...f, body }))}
+                placeholder="Write the post…"
               />
             </div>
             <div className="space-y-1.5">

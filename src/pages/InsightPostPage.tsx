@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ChevronRight, Twitter, Linkedin, Facebook } from "lucide-react";
@@ -141,7 +142,7 @@ const InsightPostPage = () => {
         </div>
 
         <div className="prose prose-neutral dark:prose-invert max-w-none py-10">
-          <ReactMarkdown>{post.body}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.body}</ReactMarkdown>
         </div>
 
         <Link to="/insights" className="inline-flex">

@@ -51,8 +51,21 @@ const MarkdownEditor = ({ id, value, onChange, rows = 10, placeholder }: Markdow
   const applyWrap = (before: string, after: string, placeholderText: string) => {
     const ta = getTextarea();
     if (!ta) return;
-    const { selectionStart: start, selectionEnd: end, value: text } = ta;
-    const hasSelection = end > start;
+    const { selectionStart: rawStart, selectionEnd: rawEnd, value: text } = ta;
+    const hasRawSelection = rawEnd > rawStart;
+    const rawSelected = hasRawSelection ? text.slice(rawStart, rawEnd) : "";
+
+    // Trim leading/trailing whitespace out of the selection before wrapping.
+    // CommonMark only recognises "**"/"*"/"`" as emphasis when they flank
+    // non-whitespace content, so a selection that happens to capture a
+    // trailing newline (e.g. from a double-click or drag-to-end-of-line)
+    // would otherwise strand the closing marker on its own line and render
+    // as literal asterisks instead of bold text.
+    const leadingWs = rawSelected.match(/^\s*/)?.[0].length ?? 0;
+    const trailingWs = rawSelected.match(/\s*$/)?.[0].length ?? 0;
+    const start = rawStart + leadingWs;
+    const end = rawEnd - trailingWs;
+    const hasSelection = hasRawSelection && end > start;
     const selected = hasSelection ? text.slice(start, end) : placeholderText;
 
     const alreadyWrapped =

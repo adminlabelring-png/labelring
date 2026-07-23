@@ -11,33 +11,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Mail, ExternalLink, RefreshCw, FileImage, CheckCircle, AlertTriangle, XCircle, Lock, History, Users } from "lucide-react";
+import { RefreshCw, FileImage, CheckCircle, AlertTriangle, XCircle, Lock, History } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { lockScanAsVersion, getPendingRequests, decideChangeRequest, getLockedVersionByScan, type ChangeRequest, type ProductVersion } from "@/lib/version-lock";
-
-interface Signup {
-  id: string;
-  name: string;
-  email: string;
-  company: string;
-  product_category: string;
-  source: string | null;
-  created_at: string;
-}
-
-interface LeadClick {
-  id: string;
-  lead_id: string | null;
-  utm_source: string | null;
-  utm_medium: string | null;
-  utm_campaign: string | null;
-  utm_content: string | null;
-  landing_path: string;
-  referrer: string | null;
-  user_agent: string | null;
-  raw_query: string | null;
-  created_at: string;
-}
 
 const AdminLeadsPage = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -46,12 +22,6 @@ const AdminLeadsPage = () => {
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [submitting, setSubmitting] = useState(false);
-
-  const [signups, setSignups] = useState<Signup[]>([]);
-  const [loadingSignups, setLoadingSignups] = useState(false);
-
-  const [clicks, setClicks] = useState<LeadClick[]>([]);
-  const [loadingClicks, setLoadingClicks] = useState(false);
 
   const [scans, setScans] = useState<any[]>([]);
   const [loadingScans, setLoadingScans] = useState(false);
@@ -84,30 +54,6 @@ const AdminLeadsPage = () => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
-
-  const fetchSignups = async () => {
-    setLoadingSignups(true);
-    const { data, error } = await supabase
-      .from("early_access_signups" as any)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (error) toast.error(error.message);
-    else setSignups((data as unknown as Signup[]) ?? []);
-    setLoadingSignups(false);
-  };
-
-  const fetchClicks = async () => {
-    setLoadingClicks(true);
-    const { data, error } = await supabase
-      .from("lead_clicks")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (error) toast.error(error.message);
-    else setClicks((data as LeadClick[]) ?? []);
-    setLoadingClicks(false);
-  };
 
   const fetchScans = async () => {
     setLoadingScans(true);
@@ -203,8 +149,6 @@ const AdminLeadsPage = () => {
 
   useEffect(() => {
     if (session) {
-      fetchSignups();
-      fetchClicks();
       fetchScans();
       fetchRequests();
     }
@@ -235,8 +179,6 @@ const AdminLeadsPage = () => {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    setSignups([]);
-    setClicks([]);
   };
 
   if (authLoading) {
@@ -250,7 +192,7 @@ const AdminLeadsPage = () => {
           <div className="space-y-1">
             <h1 className="text-xl font-semibold">Admin sign in</h1>
             <p className="text-sm text-muted-foreground">
-              {mode === "signin" ? "Sign in to view lead activity." : "Create the first admin account."}
+              {mode === "signin" ? "Sign in to manage scans and approvals." : "Create the first admin account."}
             </p>
           </div>
           <form onSubmit={handleAuth} className="space-y-3">
@@ -278,17 +220,7 @@ const AdminLeadsPage = () => {
     );
   }
 
-  // Group clicks by lead_id for the summary
-  const byLead = new Map<string, LeadClick[]>();
-  clicks.forEach((c) => {
-    const key = c.lead_id || "(anonymous)";
-    if (!byLead.has(key)) byLead.set(key, []);
-    byLead.get(key)!.push(c);
-  });
-
   const refreshAll = () => {
-    fetchSignups();
-    fetchClicks();
     fetchScans();
     fetchRequests();
   };
@@ -298,11 +230,11 @@ const AdminLeadsPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Admin</h1>
-          <p className="text-sm text-muted-foreground">Lead activity & label scans</p>
+          <p className="text-sm text-muted-foreground">Label scans & approvals</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={refreshAll} disabled={loadingSignups || loadingClicks || loadingScans}>
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${loadingSignups || loadingClicks || loadingScans ? "animate-spin" : ""}`} />
+          <Button variant="outline" size="sm" onClick={refreshAll} disabled={loadingScans}>
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${loadingScans ? "animate-spin" : ""}`} />
             Refresh
           </Button>
           <Button variant="ghost" size="sm" onClick={handleSignOut}>
@@ -311,150 +243,13 @@ const AdminLeadsPage = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="signups" className="space-y-4">
+      <Tabs defaultValue="scans" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="signups">Signups ({signups.length})</TabsTrigger>
-          <TabsTrigger value="leads">Clicks ({clicks.length})</TabsTrigger>
           <TabsTrigger value="scans">Scans ({scans.length})</TabsTrigger>
           <TabsTrigger value="approvals">
             Approvals {pendingRequests.length > 0 && <Badge className="ml-1.5 h-4 px-1 text-[10px]">{pendingRequests.length}</Badge>}
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="signups" className="space-y-6">
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-medium">When</th>
-                    <th className="text-left px-3 py-2 font-medium">Name</th>
-                    <th className="text-left px-3 py-2 font-medium">Email</th>
-                    <th className="text-left px-3 py-2 font-medium">Company</th>
-                    <th className="text-left px-3 py-2 font-medium">Category</th>
-                    <th className="text-left px-3 py-2 font-medium">Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {signups.map((s) => (
-                    <tr key={s.id} className="border-t">
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
-                        {new Date(s.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2 font-medium">{s.name}</td>
-                      <td className="px-3 py-2">
-                        <a href={`mailto:${s.email}`} className="text-primary hover:underline">
-                          {s.email}
-                        </a>
-                      </td>
-                      <td className="px-3 py-2">{s.company}</td>
-                      <td className="px-3 py-2">
-                        <Badge variant="secondary" className="text-xs font-normal">
-                          {s.product_category}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{s.source ?? "—"}</td>
-                    </tr>
-                  ))}
-                  {signups.length === 0 && !loadingSignups && (
-                    <tr>
-                      <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted-foreground">
-                        <Users className="h-5 w-5 mx-auto mb-2 opacity-50" />
-                        No signups yet. These come from the "Generate" / "Scan" gate and the landing page's early access form.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="leads" className="space-y-6">
-          <Card className="p-4 bg-muted/30">
-            <p className="text-sm font-medium mb-1">How to track a lead</p>
-            <p className="text-xs text-muted-foreground mb-2">
-              Append <code>?lead=NAME</code> to any link you put in an email. Optionally add UTM params.
-            </p>
-            <code className="text-xs block bg-background border rounded px-2 py-1.5 break-all">
-              {window.location.origin}/?lead=john&amp;utm_source=email&amp;utm_campaign=oct-outreach
-            </code>
-          </Card>
-
-          <div>
-            <h2 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">By lead</h2>
-            <div className="grid gap-2">
-              {byLead.size === 0 && (
-                <p className="text-sm text-muted-foreground py-6 text-center">No tracked clicks yet.</p>
-              )}
-              {[...byLead.entries()].map(([lead, items]) => (
-                <Card key={lead} className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">{lead}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {items.length} click{items.length !== 1 ? "s" : ""} · last{" "}
-                        {new Date(items[0].created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  {items[0].utm_campaign && (
-                    <Badge variant="secondary" className="text-xs">{items[0].utm_campaign}</Badge>
-                  )}
-                </Card>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-sm font-semibold mb-2 text-muted-foreground uppercase tracking-wide">All clicks</h2>
-            <Card className="overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                    <tr>
-                      <th className="text-left px-3 py-2 font-medium">When</th>
-                      <th className="text-left px-3 py-2 font-medium">Lead</th>
-                      <th className="text-left px-3 py-2 font-medium">Source</th>
-                      <th className="text-left px-3 py-2 font-medium">Campaign</th>
-                      <th className="text-left px-3 py-2 font-medium">Landed on</th>
-                      <th className="text-left px-3 py-2 font-medium">Referrer</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clicks.map((c) => (
-                      <tr key={c.id} className="border-t">
-                        <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
-                          {new Date(c.created_at).toLocaleString()}
-                        </td>
-                        <td className="px-3 py-2 font-medium">{c.lead_id ?? "—"}</td>
-                        <td className="px-3 py-2">{c.utm_source ?? "—"}</td>
-                        <td className="px-3 py-2">{c.utm_campaign ?? "—"}</td>
-                        <td className="px-3 py-2">
-                          <span className="inline-flex items-center gap-1">
-                            <ExternalLink className="h-3 w-3" />
-                            {c.landing_path}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground truncate max-w-[200px]">
-                          {c.referrer || "direct"}
-                        </td>
-                      </tr>
-                    ))}
-                    {clicks.length === 0 && !loadingClicks && (
-                      <tr>
-                        <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted-foreground">
-                          No clicks yet. Send a test link to yourself with <code>?lead=test</code> to verify.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </div>
-        </TabsContent>
 
         <TabsContent value="scans">
           <Card className="overflow-hidden">

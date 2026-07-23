@@ -178,6 +178,20 @@ const InsightsPage = () => {
     setFormOpen(true);
   };
 
+  const handleInlineImageUpload = async (file: File): Promise<string> => {
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `inline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("insight-images").upload(path, file);
+      if (error) throw error;
+      const { data } = supabase.storage.from("insight-images").getPublicUrl(path);
+      return data.publicUrl;
+    } catch (err: any) {
+      toast.error(err.message ?? "Image upload failed");
+      throw err;
+    }
+  };
+
   const handleSave = async () => {
     if (!form.title.trim() || !form.body.trim()) {
       toast.error("Title and body are required");
@@ -446,6 +460,7 @@ const InsightsPage = () => {
                 value={form.body}
                 onChange={(body) => setForm((f) => ({ ...f, body }))}
                 placeholder="Write the post…"
+                onImageUpload={handleInlineImageUpload}
               />
             </div>
             <div className="space-y-1.5">

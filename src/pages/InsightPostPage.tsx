@@ -94,12 +94,14 @@ const InsightPostPage = () => {
               <ChevronRight className="h-3 w-3" />
               <span className="text-white/90">Guide</span>
             </nav>
-            <h1 className="text-3xl md:text-5xl font-bold tracking-tight leading-[1.05] text-white max-w-3xl text-balance">
-              {post.title}
-            </h1>
-            {post.excerpt && (
-              <p className="mt-4 text-base md:text-lg text-white/80 max-w-2xl">{post.excerpt}</p>
-            )}
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+              <h1 className="text-3xl md:text-5xl font-bold tracking-tight leading-[1.05] text-white max-w-2xl text-balance shrink-0">
+                {post.title}
+              </h1>
+              {post.excerpt && (
+                <p className="text-base md:text-lg text-white/80 max-w-md md:pb-1">{post.excerpt}</p>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -20,6 +20,11 @@ import {
 import { toast } from "sonner";
 import { ImagePlus, Pencil, Trash2, Plus } from "lucide-react";
 
+// Reuses the abstract background already uploaded for the "I've Spoken to
+// Dozens of UK Brands" post, for visual consistency with post hero banners.
+const INSIGHTS_HERO_IMAGE =
+  "https://iufpejjamjiuluuugkjn.supabase.co/storage/v1/object/public/insight-images/i-ve-spoken-to-dozens-of-uk-brands-about-their-labels-the-problem-is-almost-always-the-same-1784655451776.webp";
+
 interface Insight {
   id: string;
   title: string;
@@ -273,31 +278,44 @@ const InsightsPage = () => {
 
   return (
     <div className="space-y-10 pb-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1.5">
-          <h1 className="text-3xl font-bold tracking-tight">Insights Library</h1>
-          <p className="text-muted-foreground max-w-xl">
-            Guides and articles on label compliance, regulation, and product data.
-          </p>
+      {/* Full-bleed hero banner */}
+      <div className="relative -mx-4 md:-mx-8 lg:mx-[calc(50%-50vw)] -mt-6 md:-mt-24">
+        <div
+          className="relative min-h-[300px] md:min-h-[380px] bg-cover bg-center bg-muted flex items-center"
+          style={{ backgroundImage: `url(${INSIGHTS_HERO_IMAGE})` }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
+          <div className="relative w-full max-w-[1400px] mx-auto px-4 md:px-8 py-16 md:py-20">
+            <div className="flex flex-col md:flex-row md:items-end gap-6 md:gap-16">
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] text-white text-balance">
+                Beyond the label
+              </h1>
+              <p className="text-base md:text-lg text-white/80 max-w-md md:pb-2">
+                Expert insights and resources for teams looking to improve packaging, build brand
+                recognition and create product experiences that connect with customers.
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {isAuthor ? (
-            <>
-              <Button onClick={openNewPost} className="gap-2">
-                <Plus className="h-4 w-4" /> New post
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                Sign out
-              </Button>
-            </>
-          ) : (
-            !authLoading && (
-              <Button variant="outline" size="sm" onClick={() => setShowSignIn((v) => !v)}>
-                Author
-              </Button>
-            )
-          )}
-        </div>
+      </div>
+
+      <div className="flex justify-end">
+        {isAuthor ? (
+          <div className="flex items-center gap-2">
+            <Button onClick={openNewPost} className="gap-2">
+              <Plus className="h-4 w-4" /> New post
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              Sign out
+            </Button>
+          </div>
+        ) : (
+          !authLoading && (
+            <Button variant="outline" size="sm" onClick={() => setShowSignIn((v) => !v)}>
+              Author
+            </Button>
+          )
+        )}
       </div>
 
       {!isAuthor && showSignIn && (

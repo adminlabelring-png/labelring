@@ -20,10 +20,7 @@ import {
 import { toast } from "sonner";
 import { ImagePlus, Pencil, Trash2, Plus } from "lucide-react";
 
-// Reuses the abstract background already uploaded for the "I've Spoken to
-// Dozens of UK Brands" post, for visual consistency with post hero banners.
-const INSIGHTS_HERO_IMAGE =
-  "https://iufpejjamjiuluuugkjn.supabase.co/storage/v1/object/public/insight-images/i-ve-spoken-to-dozens-of-uk-brands-about-their-labels-the-problem-is-almost-always-the-same-1784655451776.webp";
+const INSIGHTS_HERO_IMAGE = "/insights-hero.jpg";
 
 interface Insight {
   id: string;
@@ -284,10 +281,10 @@ const InsightsPage = () => {
           className="relative min-h-[300px] md:min-h-[380px] bg-cover bg-center bg-muted flex items-center"
           style={{ backgroundImage: `url(${INSIGHTS_HERO_IMAGE})` }}
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
+          <div className="absolute inset-0 bg-black/55" />
           <div className="relative w-full max-w-[1400px] mx-auto px-4 md:px-8 py-16 md:py-20">
-            <div className="flex flex-col md:flex-row md:items-end gap-6 md:gap-16">
-              <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] text-white text-balance">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] text-white text-balance shrink-0">
                 Beyond the label
               </h1>
               <p className="text-base md:text-lg text-white/80 max-w-md md:pb-2">

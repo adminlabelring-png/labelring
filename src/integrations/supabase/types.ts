@@ -104,6 +104,7 @@ export type Database = {
           email: string
           id: string
           name: string
+          odoo_lead_id: number | null
           product_category: string
           source: string | null
         }
@@ -113,6 +114,7 @@ export type Database = {
           email: string
           id?: string
           name: string
+          odoo_lead_id?: number | null
           product_category: string
           source?: string | null
         }
@@ -122,6 +124,7 @@ export type Database = {
           email?: string
           id?: string
           name?: string
+          odoo_lead_id?: number | null
           product_category?: string
           source?: string | null
         }
@@ -157,6 +160,7 @@ export type Database = {
           product_name: string | null
           quid_percent: string | null
           responsible_person: string | null
+          signup_id: string | null
           storage_instructions: string | null
           warnings_json: Json | null
         }
@@ -189,6 +193,7 @@ export type Database = {
           product_name?: string | null
           quid_percent?: string | null
           responsible_person?: string | null
+          signup_id?: string | null
           storage_instructions?: string | null
           warnings_json?: Json | null
         }
@@ -221,6 +226,7 @@ export type Database = {
           product_name?: string | null
           quid_percent?: string | null
           responsible_person?: string | null
+          signup_id?: string | null
           storage_instructions?: string | null
           warnings_json?: Json | null
         }
@@ -459,6 +465,7 @@ export type Database = {
           product_name: string | null
           referrer: string | null
           season_tag: string | null
+          signup_id: string | null
           total_count: number
           user_agent: string | null
         }
@@ -481,6 +488,7 @@ export type Database = {
           product_name?: string | null
           referrer?: string | null
           season_tag?: string | null
+          signup_id?: string | null
           total_count?: number
           user_agent?: string | null
         }
@@ -503,6 +511,7 @@ export type Database = {
           product_name?: string | null
           referrer?: string | null
           season_tag?: string | null
+          signup_id?: string | null
           total_count?: number
           user_agent?: string | null
         }

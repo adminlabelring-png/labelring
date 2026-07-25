@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/categories";
 
 export const LEAD_SESSION_KEY = "labelring_lead_submitted";
+export const SIGNUP_ID_KEY = "labelring_signup_id";
 
 export const hasSubmittedLead = () => {
   try {
@@ -35,6 +36,26 @@ export const hasSubmittedLead = () => {
 export const markLeadSubmitted = () => {
   try {
     sessionStorage.setItem(LEAD_SESSION_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+};
+
+// The id of the early_access_signups row created this session, if any.
+// Generated client-side (see onSubmit below) rather than read back from
+// Supabase, since the table intentionally has no SELECT policy for
+// anon/authenticated — signup PII isn't queryable from the client.
+export const getSignupId = (): string | null => {
+  try {
+    return sessionStorage.getItem(SIGNUP_ID_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const setSignupId = (id: string) => {
+  try {
+    sessionStorage.setItem(SIGNUP_ID_KEY, id);
   } catch {
     /* ignore */
   }
@@ -97,7 +118,9 @@ const LeadCaptureDialog = ({
     }
     setErrors({});
     setSubmitting(true);
+    const signupId = crypto.randomUUID();
     const { error } = await supabase.from("early_access_signups").insert([{
+      id: signupId,
       name: parsed.data.name,
       email: parsed.data.email,
       company: parsed.data.company,
@@ -113,6 +136,7 @@ const LeadCaptureDialog = ({
       });
       return;
     }
+    setSignupId(signupId);
     markLeadSubmitted();
     onOpenChange(false);
     onSuccess();

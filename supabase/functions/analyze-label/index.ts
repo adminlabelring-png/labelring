@@ -6,20 +6,25 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are a product label compliance analyst. You receive an image of a product label.
+const SYSTEM_PROMPT = `You are a product label compliance analyst. You receive an image of a product's packaging.
+
+CRITICAL RULE: you may only report a field's status as "missing" if you have confirmed you can see the ENTIRE product packaging (all sides, the base, and the top/shoulder where applicable) in the submitted image. If you cannot see enough of the packaging to be sure, use "not_verified" instead — never guess "missing" from a single partial view. Getting this distinction right is the single most important part of your job: a false "missing" on a compliance tool causes real harm to a business relying on it.
 
 Your job:
-1. Extract all visible text from the label image (OCR). Be thorough — examine every area of the label including:
+1. Assess image coverage first. Consider the packaging's shape (bottle, jar, tube, aerosol can, box, pouch, etc.) and judge what fraction of its surface is actually visible in the submitted image. Cylindrical or wraparound packaging (cans, bottles, tubes, jars) almost always has information on faces not visible from a single angle — assume coverage is INCOMPLETE unless the packaging is flat and fully visible in one shot (e.g. a box photographed to show every panel at once), or multiple angles were clearly provided.
+
+2. Extract all visible text from the image (OCR). Be thorough — examine every area including:
    - Near barcodes and QR codes (batch/lot numbers are often printed adjacent to or below barcodes)
    - Bottom edges and corners of the label
    - Small print areas
    - Back-of-pack panels
    - Regulatory information panels
 
-2. Map the extracted text into the following fields. For each field, determine a status:
-   - "found" — the information is clearly present
-   - "needs_review" — something is present but unclear, partial, or possibly incorrect
-   - "not_found" — the information is completely missing
+3. Map the extracted text into the following fields. For each field, determine a FOUR-STATE status:
+   - "verified" — clearly visible, extracted with high confidence, no ambiguity
+   - "low_confidence" — detected but the text is unclear, blurry, partially obscured, or you're inferring it rather than reading it directly
+   - "not_verified" — you cannot confirm this because the area where it would normally appear isn't visible in the submitted image
+   - "missing" — ONLY if you've confirmed full packaging coverage (see the critical rule above) and the field is genuinely absent
 
 Fields to extract:
 - Product Name
@@ -33,18 +38,28 @@ Fields to extract:
 - Net Quantity (weight, volume, count)
 - Storage Instructions (also look for "Other information" sections)
 
-3. Detect the product category (one of: Skincare, Food, Beverage, Supplements, Household, Other).
+4. Detect the product category — one of: Cosmetic, Food, Beverage, Supplement, Household, Other.
+   "Cosmetic" covers ALL personal care and cosmetic products — skincare, haircare (including hairsprays, shampoos, styling products), makeup, fragrance, oral care, personal-care aerosols, etc. Don't default to "Other" just because a product isn't facial skincare.
 
-4. For each field with status "needs_review" or "not_found", provide a brief suggested fix.
+5. For each field with status other than "verified", provide a brief suggestedFix — phrase it according to WHY the field isn't verified:
+   - "not_verified" (blocked by incomplete coverage): phrase it as a request for an ADDITIONAL IMAGE, not an instruction to add something to the label (e.g. "Capture an additional image showing the base or opposite side — batch/lot numbers are commonly printed separately from the main label.").
+   - "missing" (confirmed absent after full coverage): phrase it as what needs to be ADDED to the label.
+   - "low_confidence": phrase it as what would help clarify (e.g. re-take with better lighting/focus on that area).
 
 You MUST respond with ONLY valid JSON matching this exact schema (no markdown, no code fences):
 {
   "category": "string",
+  "coverage": {
+    "isComplete": boolean,
+    "visibleAreas": ["string", ...],
+    "missingAreas": ["string", ...],
+    "note": "one plain-language sentence, e.g. 'Only the front label is visible; the base, top and opposite side were not captured.'"
+  },
   "fields": [
     {
       "label": "string",
       "value": "string or null",
-      "status": "found | needs_review | not_found",
+      "status": "verified | low_confidence | not_verified | missing",
       "suggestedFix": "string or null"
     }
   ]
@@ -156,7 +171,7 @@ serve(async (req) => {
     }
 
     const seasonalAddendum = isSeasonal
-      ? `\n\nSEASONAL / TEMPORARY SKU RISK MODE IS ACTIVE${seasonTag ? ` (tag: ${seasonTag})` : ""}.\nApply stricter scrutiny: be especially critical about (a) on-pack promotional claims and "limited edition" wording that must still meet labelling rules, (b) batch/lot codes — seasonal runs often skip these, (c) date markings (best-before / expiry) clearly visible, (d) allergen carry-over from shared seasonal production lines, (e) net quantity changes for promo packs / multipacks, (f) any temporary co-branding or partner logos that may need additional declarations. When in doubt, mark fields as "needs_review" rather than "found".`
+      ? `\n\nSEASONAL / TEMPORARY SKU RISK MODE IS ACTIVE${seasonTag ? ` (tag: ${seasonTag})` : ""}.\nApply stricter scrutiny: be especially critical about (a) on-pack promotional claims and "limited edition" wording that must still meet labelling rules, (b) batch/lot codes — seasonal runs often skip these, (c) date markings (best-before / expiry) clearly visible, (d) allergen carry-over from shared seasonal production lines, (e) net quantity changes for promo packs / multipacks, (f) any temporary co-branding or partner logos that may need additional declarations. When in doubt, mark fields as "low_confidence" or "not_verified" rather than "verified" or "missing".`
       : "";
 
     // Detect mime type from base64 header or default to jpeg
@@ -200,6 +215,24 @@ serve(async (req) => {
     } catch {
       console.error("Failed to parse AI response:", content);
       throw new Error("Failed to parse AI analysis result");
+    }
+
+    // Critical rule enforcement — defense in depth alongside the client's
+    // own enforcement in buildScanResult(): a false "missing" must never
+    // leave this function, even if the model didn't follow instructions.
+    const coverageComplete = parsed?.coverage?.isComplete === true;
+    if (!parsed?.coverage) {
+      parsed.coverage = {
+        isComplete: false,
+        visibleAreas: [],
+        missingAreas: [],
+        note: "Coverage could not be assessed for this image.",
+      };
+    }
+    if (!coverageComplete && Array.isArray(parsed.fields)) {
+      parsed.fields = parsed.fields.map((f: { status?: string }) =>
+        f?.status === "missing" ? { ...f, status: "not_verified" } : f
+      );
     }
 
     return new Response(JSON.stringify(parsed), {

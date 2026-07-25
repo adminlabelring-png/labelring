@@ -1,5 +1,23 @@
 import jsPDF from "jspdf";
-import { ScanResult } from "./scan-context";
+import { ScanResult, DetectedField, getOverallAssessment, getAssessmentSummary } from "./scan-context";
+
+const statusLabel = (status: DetectedField["status"]) => {
+  switch (status) {
+    case "verified": return "Verified";
+    case "low_confidence": return "Low Confidence";
+    case "not_verified": return "Not Verified";
+    case "missing": return "Missing";
+  }
+};
+
+const statusColor = (status: DetectedField["status"]): [number, number, number] => {
+  switch (status) {
+    case "verified": return [34, 139, 34];
+    case "low_confidence": return [200, 150, 0];
+    case "not_verified": return [110, 110, 110];
+    case "missing": return [200, 50, 50];
+  }
+};
 
 export const generateComplianceReport = (result: ScanResult) => {
   const doc = new jsPDF();
@@ -35,24 +53,55 @@ export const generateComplianceReport = (result: ScanResult) => {
   addText(`File: ${result.fileName}`, 14, y);
   y += 7;
   addText(`Category: ${result.category}`, 14, y);
-  y += 7;
+  y += 12;
 
-  const score = Math.round((result.foundCount / result.totalCount) * 100);
-  addText(`Compliance Score: ${score}%`, 14, y, { fontStyle: "bold", color: score >= 80 ? [34, 139, 34] : score >= 50 ? [200, 150, 0] : [200, 50, 50] });
+  // Assessment Summary
+  addText("Assessment Summary", 14, y, { fontSize: 14, fontStyle: "bold", color: [30, 64, 120] });
+  y += 8;
+  doc.line(14, y, pageWidth - 14, y);
+  y += 8;
+  const summaryLines = doc.splitTextToSize(getAssessmentSummary(result), pageWidth - 28);
+  addText(summaryLines.join("\n"), 14, y, { fontSize: 10, maxWidth: pageWidth - 28 });
+  y += summaryLines.length * 5 + 10;
+
+  // Image Coverage Assessment
+  if (y > 250) { doc.addPage(); y = 20; }
+  addText("Image Coverage Assessment", 14, y, { fontSize: 14, fontStyle: "bold", color: [30, 64, 120] });
+  y += 8;
+  doc.line(14, y, pageWidth - 14, y);
+  y += 8;
+  const coverageLines = doc.splitTextToSize(result.coverage.note, pageWidth - 28);
+  addText(coverageLines.join("\n"), 14, y, { fontSize: 10, maxWidth: pageWidth - 28 });
+  y += coverageLines.length * 5 + 4;
+  if (result.coverage.missingAreas.length > 0) {
+    const notVisible = `Not visible: ${result.coverage.missingAreas.join(", ")}.`;
+    const notVisibleLines = doc.splitTextToSize(notVisible, pageWidth - 28);
+    addText(notVisibleLines.join("\n"), 14, y, { fontSize: 9, color: [120, 120, 120], maxWidth: pageWidth - 28 });
+    y += notVisibleLines.length * 5 + 4;
+  }
+  y += 6;
+
+  // Scoring — non-numeric headline when coverage is partial, matching the
+  // in-app report's rule that a partial-coverage scan must never read as a
+  // pass/fail score.
+  if (y > 250) { doc.addPage(); y = 20; }
+  const assessment = getOverallAssessment(result);
+  const assessmentColor: [number, number, number] =
+    assessment.tone === "good" ? [34, 139, 34] : assessment.tone === "attention" ? [200, 50, 50] : [200, 150, 0];
+  addText(assessment.banner, 14, y, { fontSize: 14, fontStyle: "bold", color: assessmentColor });
   y += 7;
-  addText(`Fields Found: ${result.foundCount} / ${result.totalCount}`, 14, y);
-  y += 7;
-  addText(`Items Needing Attention: ${result.needsAttentionCount}`, 14, y);
+  addText(assessment.detail, 14, y, { fontSize: 10, color: [80, 80, 80] });
   y += 14;
 
   // Detected fields
+  if (y > 250) { doc.addPage(); y = 20; }
   addText("Detected Fields", 14, y, { fontSize: 14, fontStyle: "bold", color: [30, 64, 120] });
   y += 8;
   doc.line(14, y, pageWidth - 14, y);
   y += 8;
 
-  const foundFields = result.fields.filter(f => f.status === "found");
-  for (const field of foundFields) {
+  const verifiedFields = result.fields.filter(f => f.status === "verified");
+  for (const field of verifiedFields) {
     if (y > 270) { doc.addPage(); y = 20; }
     addText(`✓ ${field.label}`, 14, y, { fontStyle: "bold" });
     y += 6;
@@ -64,11 +113,11 @@ export const generateComplianceReport = (result: ScanResult) => {
   }
 
   // Issues
-  const issueFields = result.fields.filter(f => f.status !== "found");
+  const issueFields = result.fields.filter(f => f.status !== "verified");
   if (issueFields.length > 0) {
     y += 6;
     if (y > 250) { doc.addPage(); y = 20; }
-    addText("Issues & Recommendations", 14, y, { fontSize: 14, fontStyle: "bold", color: [200, 50, 50] });
+    addText("Needs Attention", 14, y, { fontSize: 14, fontStyle: "bold", color: [200, 50, 50] });
     y += 8;
     doc.setDrawColor(200, 50, 50);
     doc.line(14, y, pageWidth - 14, y);
@@ -77,15 +126,14 @@ export const generateComplianceReport = (result: ScanResult) => {
 
     for (const field of issueFields) {
       if (y > 260) { doc.addPage(); y = 20; }
-      const icon = field.status === "not_found" ? "✗" : "⚠";
-      addText(`${icon} ${field.label}`, 14, y, { fontStyle: "bold", color: field.status === "not_found" ? [200, 50, 50] : [200, 150, 0] });
+      const color = statusColor(field.status);
+      addText(`${field.label}`, 14, y, { fontStyle: "bold", color });
       y += 6;
-      const statusText = field.status === "not_found" ? "Not found on this label" : "Needs review";
-      addText(`Status: ${statusText}`, 20, y, { fontSize: 10, color: [80, 80, 80] });
+      addText(`Status: ${statusLabel(field.status)}`, 20, y, { fontSize: 10, color: [80, 80, 80] });
       y += 6;
       if (field.suggestedFix) {
-        addText(`Suggested fix: ${field.suggestedFix}`, 20, y, { fontSize: 10, color: [34, 100, 34], maxWidth: pageWidth - 34 });
-        const fixLines = doc.splitTextToSize(`Suggested fix: ${field.suggestedFix}`, pageWidth - 34);
+        const fixLines = doc.splitTextToSize(field.suggestedFix, pageWidth - 34);
+        addText(fixLines.join("\n"), 20, y, { fontSize: 10, color: [34, 100, 34], maxWidth: pageWidth - 34 });
         y += fixLines.length * 5 + 4;
       }
     }
@@ -93,10 +141,14 @@ export const generateComplianceReport = (result: ScanResult) => {
 
   // Disclaimer
   y += 10;
-  if (y > 260) { doc.addPage(); y = 20; }
+  if (y > 250) { doc.addPage(); y = 20; }
+  const disclaimer = result.coverage.isComplete
+    ? "This is an automated label review. Final compliance should be verified against official guidelines."
+    : "This assessment is based only on the visible areas of the submitted packaging. Information identified as \"Not Verified\" may exist elsewhere on the product and should not be interpreted as missing without additional images.";
+  const disclaimerLines = doc.splitTextToSize(disclaimer, pageWidth - 36);
   doc.setFillColor(245, 245, 245);
-  doc.rect(14, y - 4, pageWidth - 28, 20, "F");
-  addText("This is an automated label review. Final compliance should be verified against official guidelines.", 16, y + 4, { fontSize: 8, color: [120, 120, 120], maxWidth: pageWidth - 36 });
+  doc.rect(14, y - 4, pageWidth - 28, disclaimerLines.length * 4 + 8, "F");
+  addText(disclaimerLines.join("\n"), 16, y + 4, { fontSize: 8, color: [120, 120, 120], maxWidth: pageWidth - 36 });
 
   doc.save(`Label-Review-${result.fileName.replace(/\.[^.]+$/, "")}.pdf`);
 };

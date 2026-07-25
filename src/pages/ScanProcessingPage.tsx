@@ -150,6 +150,7 @@ const ScanProcessingPage = () => {
             product_key: productKey,
             compared_to_scan_id: result.changes?.comparedToScanId ?? null,
             changes_detected: result.changes ?? null,
+            coverage_assessment: result.coverage as any,
           }).select("id").single();
 
           const newScanId = (inserted as any)?.id ?? null;

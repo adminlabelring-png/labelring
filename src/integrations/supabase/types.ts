@@ -450,6 +450,7 @@ export type Database = {
           category: string | null
           changes_detected: Json | null
           compared_to_scan_id: string | null
+          coverage_assessment: Json | null
           created_at: string
           fields: Json
           file_name: string
@@ -473,6 +474,7 @@ export type Database = {
           category?: string | null
           changes_detected?: Json | null
           compared_to_scan_id?: string | null
+          coverage_assessment?: Json | null
           created_at?: string
           fields?: Json
           file_name: string
@@ -496,6 +498,7 @@ export type Database = {
           category?: string | null
           changes_detected?: Json | null
           compared_to_scan_id?: string | null
+          coverage_assessment?: Json | null
           created_at?: string
           fields?: Json
           file_name?: string

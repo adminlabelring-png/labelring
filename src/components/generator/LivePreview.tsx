@@ -1,5 +1,6 @@
 import { FileText, Loader2 } from "lucide-react";
-import { splitAllergenHighlights, type Pack } from "@/lib/label-rules";
+import { type Pack } from "@/lib/label-rules";
+import { splitAllergenHighlights } from "@/lib/allergens";
 
 interface Props {
   preview: string;

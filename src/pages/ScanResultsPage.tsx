@@ -1,58 +1,61 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, AlertTriangle, XCircle, ChevronDown, Wand2, Download, Calendar, ScanLine, RotateCcw, Info, Sparkles, GitCompare, Plus, Minus, Building2, Globe, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
+import { CheckCircle, AlertTriangle, HelpCircle, XCircle, ChevronDown, ImagePlus, Download, Calendar, ScanLine, RotateCcw, Sparkles, GitCompare, Plus, Minus, Building2, Globe, Lock, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useScan, DetectedField } from "@/lib/scan-context";
+import { useScan, DetectedField, getOverallAssessment, getAssessmentSummary } from "@/lib/scan-context";
 import { generateComplianceReport } from "@/lib/generate-report";
+import { cn } from "@/lib/utils";
 
 const statusIcon = (status: DetectedField["status"]) => {
   switch (status) {
-    case "found": return <CheckCircle className="h-4 w-4 text-[hsl(var(--risk-low))]" />;
-    case "needs_review": return <AlertTriangle className="h-4 w-4 text-[hsl(var(--risk-medium))]" />;
-    case "not_found": return <XCircle className="h-4 w-4 text-[hsl(var(--risk-high))]" />;
+    case "verified": return <CheckCircle className="h-4 w-4 text-[hsl(var(--risk-low))]" />;
+    case "low_confidence": return <AlertTriangle className="h-4 w-4 text-[hsl(var(--risk-medium))]" />;
+    case "not_verified": return <HelpCircle className="h-4 w-4 text-muted-foreground" />;
+    case "missing": return <XCircle className="h-4 w-4 text-[hsl(var(--risk-high))]" />;
   }
 };
 
 const statusLabel = (status: DetectedField["status"]) => {
   switch (status) {
-    case "found": return "Found";
-    case "needs_review": return "Needs review";
-    case "not_found": return "Not visible in uploaded image";
+    case "verified": return "Verified";
+    case "low_confidence": return "Low Confidence";
+    case "not_verified": return "Not Verified";
+    case "missing": return "Missing";
+  }
+};
+
+const statusBadgeClass = (status: DetectedField["status"]) => {
+  switch (status) {
+    case "verified": return "compliance-badge-high";
+    case "low_confidence": return "compliance-badge-medium";
+    case "not_verified": return "bg-muted text-muted-foreground";
+    case "missing": return "compliance-badge-low";
   }
 };
 
 const ScanResultsPage = () => {
   const { result, reset } = useScan();
   const navigate = useNavigate();
-  const [category, setCategory] = useState(result?.category ?? "Skincare");
+  const [category, setCategory] = useState(result?.category ?? "Cosmetic");
   const [showCategorySelect, setShowCategorySelect] = useState(false);
-  const [showCompliant, setShowCompliant] = useState(false);
-  const [generating, setGenerating] = useState(false);
 
   if (!result) {
     navigate("/scan", { replace: true });
     return null;
   }
 
-  const foundFields = result.fields.filter(f => f.status === "found");
-  const issueFields = result.fields.filter(f => f.status !== "found");
-  const isLowInfo = foundFields.length <= 2 || (foundFields.length / result.fields.length) < 0.3;
-
-  const handleGenerate = () => {
-    setGenerating(true);
-    setTimeout(() => {
-      setGenerating(false);
-      setShowCompliant(true);
-    }, 1500);
-  };
+  const verifiedFields = result.fields.filter(f => f.status === "verified");
+  const issueFields = result.fields.filter(f => f.status !== "verified");
+  const assessment = getOverallAssessment(result);
+  const summaryText = getAssessmentSummary(result);
 
   const handleNewScan = () => {
     reset();
     navigate("/scan");
   };
 
-  const categories = ["Skincare", "Food", "Beverage", "Supplements", "Household"];
+  const categories = ["Cosmetic", "Food", "Beverage", "Supplement", "Household", "Other"];
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -62,6 +65,47 @@ const ScanResultsPage = () => {
         <p className="text-sm text-muted-foreground mt-1">
           Results for: {result.fileName}
         </p>
+      </motion.div>
+
+      {/* Report Summary */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.02 }}
+        className="rounded-lg border bg-card p-4"
+      >
+        <h2 className="text-sm font-semibold">Assessment Summary</h2>
+        <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{summaryText}</p>
+      </motion.div>
+
+      {/* Image Coverage Assessment */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.03 }}
+        className={cn(
+          "rounded-lg border p-4 flex gap-3",
+          result.coverage.isComplete
+            ? "bg-card"
+            : "border-[hsl(var(--risk-medium)/0.4)] bg-[hsl(var(--risk-medium-bg))]"
+        )}
+      >
+        <ImagePlus
+          className={cn(
+            "h-5 w-5 shrink-0 mt-0.5",
+            result.coverage.isComplete ? "text-muted-foreground" : "text-[hsl(var(--risk-medium))]"
+          )}
+        />
+        <div className="flex-1">
+          <p className="text-sm font-semibold">Image Assessment</p>
+          <p className="text-sm text-muted-foreground mt-1">{result.coverage.note}</p>
+          {result.coverage.missingAreas.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Not visible: {result.coverage.missingAreas.join(", ")}. Because of this, some required
+              information could not be verified.
+            </p>
+          )}
+        </div>
       </motion.div>
 
       {/* Version lock / approval banner */}
@@ -219,24 +263,6 @@ const ScanResultsPage = () => {
         </motion.div>
       )}
 
-      {/* Low-info warning */}
-      {isLowInfo && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.03 }}
-          className="rounded-lg border border-[hsl(var(--risk-medium)/0.4)] bg-[hsl(var(--risk-medium-bg))] p-4 flex gap-3"
-        >
-          <Info className="h-5 w-5 text-[hsl(var(--risk-medium))] shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium">Limited information detected</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              This may be due to incomplete label visibility or a front-of-pack image. Try uploading the outer packaging or back-of-pack for better results.
-            </p>
-          </div>
-        </motion.div>
-      )}
-
       {/* Category detection */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -288,21 +314,30 @@ const ScanResultsPage = () => {
         </AnimatePresence>
       </motion.div>
 
-      {/* Summary */}
+      {/* Scoring banner — non-numeric headline while coverage is partial, so
+          it structurally can't be misread as a pass/fail score. */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 gap-4"
+        className={cn(
+          "rounded-lg border-2 p-6 text-center",
+          assessment.tone === "needs-images" && "border-[hsl(var(--risk-medium)/0.4)] bg-[hsl(var(--risk-medium-bg))]",
+          assessment.tone === "good" && "border-[hsl(var(--risk-low)/0.4)] bg-[hsl(var(--risk-low-bg))]",
+          assessment.tone === "attention" && "border-[hsl(var(--risk-high)/0.4)] bg-[hsl(var(--risk-high-bg))]"
+        )}
       >
-        <div className="rounded-lg border bg-card p-5 text-center">
-          <p className="text-3xl font-bold text-[hsl(var(--risk-low))]">{result.foundCount}</p>
-          <p className="text-sm text-muted-foreground mt-1">of {result.totalCount} key fields found</p>
-        </div>
-        <div className="rounded-lg border bg-card p-5 text-center">
-          <p className="text-3xl font-bold text-[hsl(var(--risk-high))]">{result.needsAttentionCount}</p>
-          <p className="text-sm text-muted-foreground mt-1">items need attention</p>
-        </div>
+        <p
+          className={cn(
+            "text-2xl font-bold",
+            assessment.tone === "needs-images" && "text-[hsl(var(--risk-medium))]",
+            assessment.tone === "good" && "text-[hsl(var(--risk-low))]",
+            assessment.tone === "attention" && "text-[hsl(var(--risk-high))]"
+          )}
+        >
+          {assessment.banner}
+        </p>
+        <p className="text-sm text-muted-foreground mt-2">{assessment.detail}</p>
       </motion.div>
 
       {/* Detected Information */}
@@ -316,14 +351,14 @@ const ScanResultsPage = () => {
           <h2 className="text-base font-semibold">Detected Information</h2>
         </div>
         <div className="divide-y">
-          {foundFields.map((field) => (
+          {verifiedFields.map((field) => (
             <div key={field.label} className="flex items-start gap-3 p-4">
               {statusIcon(field.status)}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{field.label}</p>
-                <p className="text-sm text-muted-foreground mt-0.5 break-words">{field.value}</p>
+                <p className="text-sm text-muted-foreground mt-0.5 break-words whitespace-pre-line">{field.value}</p>
               </div>
-              <span className="compliance-badge-high rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0">
+              <span className={`${statusBadgeClass(field.status)} rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0`}>
                 {statusLabel(field.status)}
               </span>
             </div>
@@ -331,7 +366,7 @@ const ScanResultsPage = () => {
         </div>
       </motion.div>
 
-      {/* Needs Review / Not Detected */}
+      {/* Needs Attention */}
       {issueFields.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -340,7 +375,7 @@ const ScanResultsPage = () => {
           className="rounded-lg border border-[hsl(var(--risk-high)/0.3)] bg-card"
         >
           <div className="p-4 border-b">
-            <h2 className="text-base font-semibold">Needs Review / Not Found on This Label</h2>
+            <h2 className="text-base font-semibold">Needs Attention</h2>
           </div>
           <div className="divide-y">
             {issueFields.map((field) => (
@@ -349,12 +384,19 @@ const ScanResultsPage = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{field.label}</p>
                   {field.value ? (
-                    <p className="text-sm text-muted-foreground mt-0.5">{field.value}</p>
+                    <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-line">{field.value}</p>
                   ) : (
-                    <p className="text-sm text-muted-foreground mt-0.5 italic">Not found on this label</p>
+                    <p className="text-sm text-muted-foreground mt-0.5 italic">
+                      {field.status === "missing"
+                        ? "Confirmed absent from this label."
+                        : "Not visible in the submitted image."}
+                    </p>
+                  )}
+                  {field.suggestedFix && (
+                    <p className="text-xs text-primary mt-1.5">{field.suggestedFix}</p>
                   )}
                 </div>
-                <span className={`${field.status === "not_found" ? "compliance-badge-low" : "compliance-badge-medium"} rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0`}>
+                <span className={`${statusBadgeClass(field.status)} rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0`}>
                   {statusLabel(field.status)}
                 </span>
               </div>
@@ -372,20 +414,7 @@ const ScanResultsPage = () => {
       >
         <h2 className="text-base font-semibold">Actions</h2>
         <div className="flex flex-col sm:flex-row gap-3">
-          <Button
-            onClick={handleGenerate}
-            disabled={generating || showCompliant}
-            className="flex-1 gap-2"
-          >
-            {generating ? (
-              <><Wand2 className="h-4 w-4 animate-spin" /> Generating…</>
-            ) : showCompliant ? (
-              <><CheckCircle className="h-4 w-4" /> Compliant version ready</>
-            ) : (
-              <><Wand2 className="h-4 w-4" /> Generate compliant version</>
-            )}
-          </Button>
-          <Button variant="outline" className="w-full gap-2" onClick={() => generateComplianceReport(result)}>
+          <Button variant="outline" className="flex-1 gap-2" onClick={() => generateComplianceReport(result)}>
               <Download className="h-4 w-4" /> Download report
           </Button>
           <Button variant="outline" className="gap-2">
@@ -393,45 +422,6 @@ const ScanResultsPage = () => {
           </Button>
         </div>
       </motion.div>
-
-      {/* Compliant version */}
-      <AnimatePresence>
-        {showCompliant && (
-          <motion.div
-            initial={{ opacity: 0, y: 12, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: "auto" }}
-            exit={{ opacity: 0, y: -8 }}
-            className="rounded-lg border-2 border-[hsl(var(--risk-low)/0.4)] bg-[hsl(var(--risk-low-bg))] overflow-hidden"
-          >
-            <div className="p-4 border-b border-[hsl(var(--risk-low)/0.2)]">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-[hsl(var(--risk-low))]" />
-                <h2 className="text-base font-semibold text-[hsl(var(--risk-low))]">Compliant Version</h2>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Suggested corrections for missing or unclear fields</p>
-            </div>
-            <div className="divide-y divide-[hsl(var(--risk-low)/0.15)]">
-              {issueFields.map((field) => (
-                <div key={field.label} className="p-4 space-y-1">
-                  <p className="text-sm font-medium">{field.label}</p>
-                  <p className="text-xs text-muted-foreground line-through">
-                    {field.status === "not_found" ? "Not found on this label" : "Unclear / needs review"}
-                  </p>
-                  <p className="text-sm text-[hsl(var(--risk-low))]">
-                    ✓ {field.suggestedFix
-                      ? field.suggestedFix
-                      : field.label === "Manufacturer / Responsible Person"
-                      ? "Add: NaturGlow Ltd, 12 Bloom Street, London EC2A 4NE"
-                      : field.label === "Expiry / Best Before"
-                      ? "Add: Best before see base of bottle, format DD/MM/YYYY"
-                      : "Add: Store in a cool, dry place away from direct sunlight"}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Scan again */}
       <motion.div
@@ -453,7 +443,9 @@ const ScanResultsPage = () => {
         className="rounded-lg bg-muted p-4"
       >
         <p className="text-xs text-muted-foreground text-center">
-          This is an automated label review to help identify missing or unclear information. Some products don't display full information on the primary packaging. For best results, upload outer packaging or back-of-pack. Final compliance should be verified against official guidelines.
+          {result.coverage.isComplete
+            ? "This is an automated label review to help identify missing or unclear information. Final compliance should be verified against official guidelines."
+            : "This assessment is based only on the visible areas of the submitted packaging. Information identified as \"Not Verified\" may exist elsewhere on the product and should not be interpreted as missing without additional images."}
         </p>
       </motion.div>
 

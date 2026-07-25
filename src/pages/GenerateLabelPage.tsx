@@ -29,14 +29,16 @@ import {
   evaluateLabel,
   deriveWarnings,
   getPack,
+  type LabelFields,
+  type NutritionTable,
+} from "@/lib/label-rules";
+import {
   findAllergensInText,
   formatAllergenList,
   splitAllergenHighlights,
   EU_FRAGRANCE_ALLERGENS,
   FRAGRANCE_ALLERGEN_THRESHOLD,
-  type LabelFields,
-  type NutritionTable,
-} from "@/lib/label-rules";
+} from "@/lib/allergens";
 import { generatePreview, suggestField } from "@/lib/generate-label";
 import { supabase } from "@/integrations/supabase/client";
 import { getLeadId } from "@/lib/lead-tracker";

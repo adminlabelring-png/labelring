@@ -1,4 +1,10 @@
 // UK-FIC + Cosmetic label rule packs
+import {
+  findAllergensInText,
+  formatAllergenList,
+  FRAGRANCE_ALLERGEN_THRESHOLD,
+} from "./allergens";
+
 export type Pack = "food" | "cosmetic" | "generic";
 
 export interface NutritionTable {
@@ -91,100 +97,6 @@ const hasAnyUnit = (v: string) =>
   /\d/.test(v) && /(ml|l\b|g\b|kg|mg|oz|fl|cl|pcs|count)/i.test(v);
 const UK_POSTCODE =
   /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i;
-
-// UK's 14 allergens (FIC Annex II)
-export const UK_ALLERGENS = [
-  "gluten", "wheat", "rye", "barley", "oats", "spelt", "khorasan",
-  "crustacean", "prawn", "crab", "lobster", "crayfish",
-  "egg", "fish", "peanut", "soy", "soya", "soybean",
-  "milk", "lactose", "butter", "cream", "cheese", "whey",
-  "almond", "hazelnut", "pistachio", "pecan", "walnut", "brazil nut", "macadamia", "cashew",
-  "celery", "celeriac", "mustard", "sesame",
-  "sulphite", "sulphur dioxide", "sulfite",
-  "lupin", "mollusc", "mussel", "oyster", "snail", "squid",
-];
-
-export const findAllergensInText = (text: string): string[] => {
-  const lower = text.toLowerCase();
-  const found = new Set<string>();
-  UK_ALLERGENS.forEach((a) => {
-    if (lower.includes(a)) found.add(a);
-  });
-  return [...found];
-};
-
-export const formatAllergenList = (allergens: string[]): string =>
-  allergens.map((a) => a.replace(/\b\w/g, (c) => c.toUpperCase())).join(", ");
-
-// EU Cosmetic Regulation (EC) 1223/2009 Annex III fragrance allergens.
-// Set to expand under EU 2023/1545, phased in 2026-2028.
-export const EU_FRAGRANCE_ALLERGENS = [
-  "Amyl cinnamal",
-  "Benzyl alcohol",
-  "Cinnamyl alcohol",
-  "Citral",
-  "Eugenol",
-  "Hydroxycitronellal",
-  "Isoeugenol",
-  "Amylcinnamyl alcohol",
-  "Benzyl salicylate",
-  "Cinnamal",
-  "Coumarin",
-  "Geraniol",
-  "Hydroxyisohexyl 3-cyclohexene carboxaldehyde (Lyral)",
-  "Anisyl alcohol",
-  "Benzyl cinnamate",
-  "Farnesol",
-  "Butylphenyl methylpropional (Lilial)",
-  "Linalool",
-  "Benzyl benzoate",
-  "Citronellol",
-  "Hexyl cinnamal",
-  "Limonene",
-  "Methyl heptin carbonate",
-  "Alpha-Isomethyl ionone",
-  "Evernia prunastri extract (oakmoss)",
-  "Evernia furfuracea extract (treemoss)",
-] as const;
-
-// Cosmetic fragrance-allergen labelling thresholds (EU 1223/2009 Art. 19(1)(f))
-export const FRAGRANCE_ALLERGEN_THRESHOLD: Record<"leave_on" | "rinse_off", string> = {
-  leave_on: "0.001%",
-  rinse_off: "0.01%",
-};
-
-export interface AllergenSegment {
-  text: string;
-  isAllergen: boolean;
-}
-
-// Splits ingredients text into segments so callers can render the 14 UK
-// allergens with bold/emphasis styling wherever they're detected, instead
-// of relying on the user to type them in caps themselves.
-export const splitAllergenHighlights = (text: string): AllergenSegment[] => {
-  const detected = findAllergensInText(text);
-  if (detected.length === 0) return [{ text, isAllergen: false }];
-  const pattern = detected
-    .slice()
-    .sort((a, b) => b.length - a.length)
-    .map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("|");
-  const re = new RegExp(`\\b(${pattern})\\b`, "gi");
-  const segments: AllergenSegment[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({ text: text.slice(lastIndex, match.index), isAllergen: false });
-    }
-    segments.push({ text: match[0], isAllergen: true });
-    lastIndex = re.lastIndex;
-  }
-  if (lastIndex < text.length) {
-    segments.push({ text: text.slice(lastIndex), isAllergen: false });
-  }
-  return segments;
-};
 
 // Derives regulatory warning phrases based on the ingredients text
 export interface DerivedWarning {

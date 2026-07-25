@@ -1,25 +1,27 @@
-import { CheckCircle2, AlertCircle, XCircle, Info } from "lucide-react";
+import { CheckCircle2, AlertCircle, HelpCircle, Info } from "lucide-react";
 import type { RuleResult } from "@/lib/label-rules";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+// AI confidence per field: Verified (present & valid), Needs Review (present
+// but ambiguous/incomplete), Not Provided (nothing entered yet).
 const badge = {
   ok: {
     Icon: CheckCircle2,
     className: "text-[hsl(var(--risk-low))]",
     pill: "bg-[hsl(var(--risk-low-bg))] text-[hsl(var(--risk-low))]",
-    label: "OK",
+    label: "Verified",
   },
   review: {
     Icon: AlertCircle,
     className: "text-[hsl(var(--risk-medium))]",
     pill: "bg-[hsl(var(--risk-medium-bg))] text-[hsl(var(--risk-medium))]",
-    label: "Review",
+    label: "Needs Review",
   },
   missing: {
-    Icon: XCircle,
+    Icon: HelpCircle,
     className: "text-[hsl(var(--risk-high))]",
     pill: "bg-[hsl(var(--risk-high-bg))] text-[hsl(var(--risk-high))]",
-    label: "Missing",
+    label: "Not Provided",
   },
 } as const;
 

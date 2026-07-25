@@ -38,6 +38,7 @@ export interface LabelFields {
   paoMonths: string;
   fragranceAllergens: string[];
   cosmeticProductType: "" | "leave_on" | "rinse_off";
+  instructionsForUse: string;
 }
 
 export const emptyLabel: LabelFields = {
@@ -63,6 +64,7 @@ export const emptyLabel: LabelFields = {
   paoMonths: "",
   fragranceAllergens: [],
   cosmeticProductType: "",
+  instructionsForUse: "",
 };
 
 export const getPack = (category: string): Pack => {
@@ -463,6 +465,12 @@ const cosmeticRules = (f: LabelFields): RuleResult[] => [
         : "review"
       : "missing",
     why: "A UK/EU responsible person address must appear on the pack.",
+  },
+  {
+    key: "instructions_for_use",
+    label: "Instructions for use / precautions",
+    status: has(f.instructionsForUse) ? "ok" : "missing",
+    why: "UK Cosmetic Products Enforcement Regulations require particular precautions to be observed in use — distinct from storage instructions.",
   },
   {
     key: "pao",

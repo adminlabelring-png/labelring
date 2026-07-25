@@ -48,6 +48,7 @@ interface FieldsIn {
   paoMonths?: string;
   fragranceAllergens?: string[];
   cosmeticProductType?: "leave_on" | "rinse_off" | "";
+  instructionsForUse?: string;
 }
 
 // ---------------------------------------------------------------
@@ -81,6 +82,7 @@ const COSMETIC_FIELDS: Record<string, string> = {
   responsiblePerson: "Suggest a UK Responsible Person address 'Company Ltd, Street, City POSTCODE'. Return ONLY the address.",
   certifications: "Suggest 2-4 cosmetic certifications (e.g. 'Cruelty Free International, Vegan Society, COSMOS Organic'). Return ONLY the list.",
   storageInstructions: "Suggest storage instructions (e.g. 'Store below 25°C. Keep out of direct sunlight.'). Return ONLY the text.",
+  instructionsForUse: "Suggest concise instructions for use and precautions appropriate for this product under UK Cosmetic Products Enforcement Regulations (e.g. 'For external use only. Avoid contact with eyes. Discontinue use if irritation occurs.'). Return ONLY the text.",
   quidPercent: "",
   alcoholAbv: "",
   nutrition: "",
@@ -129,6 +131,7 @@ function contextBlock(fields: FieldsIn, pack: Pack): string {
   }
   if (fields.batchNumber) lines.push(`Batch/Lot: ${fields.batchNumber}`);
   if (fields.storageInstructions) lines.push(`Storage: ${fields.storageInstructions}`);
+  if (fields.instructionsForUse) lines.push(`Instructions for use: ${fields.instructionsForUse}`);
   if (fields.responsiblePerson) lines.push(`FBO / Responsible person: ${fields.responsiblePerson}`);
   if (fields.certifications) lines.push(`Certifications: ${fields.certifications}`);
   if (fields.packagedProtectiveAtmosphere) lines.push("Packaged in a protective atmosphere.");
@@ -190,6 +193,7 @@ Then labelled sections, each on its own paragraph, skipping empties:
 - Fragrance allergens: only list allergens supplied in the context, and only if a product type/threshold was given. If none supplied, omit this line.
 - Nominal content: ...
 - PAO (Period-After-Opening) or minimum durability date: use whichever was supplied in the context.
+- Instructions for use / precautions: ...
 - Batch: ...
 - Country of origin: ...
 - Responsible person: ...

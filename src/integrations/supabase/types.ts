@@ -144,6 +144,7 @@ export type Database = {
           fragrance_allergens_json: Json | null
           id: string
           ingredients: string | null
+          instructions_for_use: string | null
           irradiated: boolean | null
           lead_id: string | null
           nano: boolean | null
@@ -175,6 +176,7 @@ export type Database = {
           fragrance_allergens_json?: Json | null
           id?: string
           ingredients?: string | null
+          instructions_for_use?: string | null
           irradiated?: boolean | null
           lead_id?: string | null
           nano?: boolean | null
@@ -206,6 +208,7 @@ export type Database = {
           fragrance_allergens_json?: Json | null
           id?: string
           ingredients?: string | null
+          instructions_for_use?: string | null
           irradiated?: boolean | null
           lead_id?: string | null
           nano?: boolean | null

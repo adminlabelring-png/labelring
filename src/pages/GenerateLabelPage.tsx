@@ -120,7 +120,7 @@ const GenerateLabelPage = () => {
       "storageInstructions",
     ];
     if (pack === "food") base.push("quidPercent", "alcoholAbv");
-    if (pack === "cosmetic") base.push("paoMonths");
+    if (pack === "cosmetic") base.push("paoMonths", "instructionsForUse");
     return base;
   }, [pack]);
 
@@ -241,6 +241,7 @@ const GenerateLabelPage = () => {
           fragrance_allergens_json: (fields.fragranceAllergens.length
             ? fields.fragranceAllergens
             : null) as never,
+          instructions_for_use: fields.instructionsForUse || null,
         })
         .select("id")
         .single();
@@ -314,7 +315,7 @@ const GenerateLabelPage = () => {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 64, 120);
-    doc.text("Compliance check", 14, y);
+    doc.text("AI Confidence", 14, y);
     y += 6;
     doc.setDrawColor(30, 64, 120);
     doc.line(14, y, w - 14, y);
@@ -324,7 +325,11 @@ const GenerateLabelPage = () => {
     doc.setTextColor(40, 40, 40);
     rules.forEach((r) => {
       const mark =
-        r.status === "ok" ? "OK" : r.status === "review" ? "REVIEW" : "MISSING";
+        r.status === "ok"
+          ? "VERIFIED"
+          : r.status === "review"
+          ? "NEEDS REVIEW"
+          : "NOT PROVIDED";
       doc.text(`• ${r.label} — ${mark}`, 16, y);
       y += 6;
       if (y > 280) {
@@ -687,6 +692,17 @@ const GenerateLabelPage = () => {
                   onChange={(e) => set("storageInstructions", e.target.value)}
                 />
               )}
+              {pack === "cosmetic" &&
+                withSuggest(
+                  "instructionsForUse",
+                  <Textarea
+                    id="instructionsForUse"
+                    rows={2}
+                    placeholder="e.g. For external use only. Avoid contact with eyes. Discontinue use if irritation occurs."
+                    value={fields.instructionsForUse}
+                    onChange={(e) => set("instructionsForUse", e.target.value)}
+                  />
+                )}
               {showBeverage &&
                 withSuggest(
                   "alcoholAbv",
@@ -827,7 +843,7 @@ const GenerateLabelPage = () => {
 
           <section>
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Compliance check · {pack.toUpperCase()}
+              AI Confidence · {pack.toUpperCase()}
             </h2>
             <ComplianceCheck rules={rules} />
           </section>
@@ -931,6 +947,7 @@ const FIELD_LABELS: Record<string, string> = {
   quidPercent: "QUID declaration",
   alcoholAbv: "Alcohol strength (% vol)",
   paoMonths: "Period-After-Opening (months)",
+  instructionsForUse: "Instructions for use / precautions",
 };
 
 export default GenerateLabelPage;

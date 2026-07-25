@@ -1,12 +1,14 @@
 import { FileText, Loader2 } from "lucide-react";
+import { splitAllergenHighlights, type Pack } from "@/lib/label-rules";
 
 interface Props {
   preview: string;
   loading: boolean;
   hasData: boolean;
+  pack?: Pack;
 }
 
-const LivePreview = ({ preview, loading, hasData }: Props) => {
+const LivePreview = ({ preview, loading, hasData, pack }: Props) => {
   if (!hasData) {
     return (
       <div className="rounded-md border-2 border-dashed border-border bg-muted/30 p-8 text-center">
@@ -18,6 +20,8 @@ const LivePreview = ({ preview, loading, hasData }: Props) => {
     );
   }
 
+  const segments = pack === "food" ? splitAllergenHighlights(preview) : null;
+
   return (
     <div className="relative rounded-md border bg-card p-5 min-h-[240px]">
       {loading && (
@@ -26,7 +30,17 @@ const LivePreview = ({ preview, loading, hasData }: Props) => {
         </div>
       )}
       <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-foreground">
-        {preview || "Waiting for AI…"}
+        {segments
+          ? segments.map((seg, i) =>
+              seg.isAllergen ? (
+                <strong key={i} className="font-bold underline">
+                  {seg.text}
+                </strong>
+              ) : (
+                <span key={i}>{seg.text}</span>
+              )
+            )
+          : preview || "Waiting for AI…"}
       </pre>
     </div>
   );

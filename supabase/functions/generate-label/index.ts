@@ -37,7 +37,7 @@ interface FieldsIn {
   bestBefore?: string;
   responsiblePerson?: string;
   certifications?: string;
-  dateType?: "use_by" | "best_before" | "";
+  dateType?: "use_by" | "best_before" | "pao" | "durability" | "";
   storageInstructions?: string;
   quidPercent?: string;
   alcoholAbv?: string;
@@ -45,6 +45,9 @@ interface FieldsIn {
   packagedProtectiveAtmosphere?: boolean;
   nano?: boolean;
   irradiated?: boolean;
+  paoMonths?: string;
+  fragranceAllergens?: string[];
+  cosmeticProductType?: "leave_on" | "rinse_off" | "";
 }
 
 // ---------------------------------------------------------------
@@ -54,7 +57,6 @@ const FOOD_FIELDS: Record<string, string> = {
   brandName: "Suggest a plausible UK food brand name that fits the category. Return ONLY the name.",
   productName: "Suggest a concise, marketable UK food product name (max 6 words). Return ONLY the name.",
   ingredients: "Return a realistic ingredients list for this food product, comma-separated, in DESCENDING order of weight. EMPHASISE the 14 UK allergens (gluten/wheat/rye/barley/oats, crustaceans, eggs, fish, peanuts, soybeans, milk, tree nuts, celery, mustard, sesame, sulphites, lupin, molluscs) in ALL CAPS wherever they appear. Include % QUID after the ingredient in brackets where regulation requires it. Return ONLY the list.",
-  allergens: "Summarise the 14 UK allergens present in the ingredients as a comma-separated list. If none, return exactly 'None'. Return ONLY the list.",
   countryOfOrigin: "Suggest a plausible country of origin. Return ONLY the country name.",
   netQuantity: "Suggest a realistic net quantity using metric units (g, kg, ml, cl, l). Return ONLY the value.",
   batchNumber: "Generate a realistic batch/lot code (e.g. 'L2026-118A'). Return ONLY the code.",
@@ -71,11 +73,11 @@ const COSMETIC_FIELDS: Record<string, string> = {
   brandName: "Suggest a plausible skincare/cosmetic brand name. Return ONLY the name.",
   productName: "Suggest a concise, marketable cosmetic product name (max 6 words). Return ONLY the name.",
   ingredients: "Return a realistic INCI ingredient list appropriate for this cosmetic, comma-separated, ordered by proportion. Use INCI names only (Aqua, Glycerin, etc.). Return ONLY the list.",
-  allergens: "List any of the 26 EU fragrance allergens likely present (comma-separated). If none, return 'None'. Return ONLY the list.",
   countryOfOrigin: "Suggest a plausible country of origin. Return ONLY the country name.",
   netQuantity: "Suggest a realistic nominal content with unit (e.g. '30ml', '50g'). Return ONLY the value.",
   batchNumber: "Generate a realistic batch code (e.g. 'BT-2026-441'). Return ONLY the code.",
-  bestBefore: "Suggest a best-before date in MM/YYYY, ~30 months out. Return ONLY the date.",
+  bestBefore: "Suggest a date of minimum durability in MM/YYYY, under 30 months out. Return ONLY the date.",
+  paoMonths: "Suggest a plausible Period-After-Opening value in months for this product type (e.g. '12'). Return ONLY the number.",
   responsiblePerson: "Suggest a UK Responsible Person address 'Company Ltd, Street, City POSTCODE'. Return ONLY the address.",
   certifications: "Suggest 2-4 cosmetic certifications (e.g. 'Cruelty Free International, Vegan Society, COSMOS Organic'). Return ONLY the list.",
   storageInstructions: "Suggest storage instructions (e.g. 'Store below 25°C. Keep out of direct sunlight.'). Return ONLY the text.",
@@ -87,6 +89,7 @@ const COSMETIC_FIELDS: Record<string, string> = {
 const GENERIC_FIELDS: Record<string, string> = {
   ...COSMETIC_FIELDS,
   ingredients: "Return a realistic ingredient/material list appropriate for this product, comma-separated. Return ONLY the list.",
+  allergens: "List any known allergens or hazardous substances present, comma-separated. If none, return 'None'. Return ONLY the list.",
 };
 
 function pickFieldMap(pack: Pack): Record<string, string> {
@@ -102,15 +105,28 @@ function contextBlock(fields: FieldsIn, pack: Pack): string {
   if (fields.productName) lines.push(`Product: ${fields.productName}`);
   if (fields.ingredients) lines.push(`Ingredients: ${fields.ingredients}`);
   if (fields.allergens) lines.push(`Allergens: ${fields.allergens}`);
+  if (fields.cosmeticProductType)
+    lines.push(
+      `Product type: ${fields.cosmeticProductType === "leave_on" ? "Leave-on" : "Rinse-off"}`
+    );
+  if (fields.fragranceAllergens && fields.fragranceAllergens.length)
+    lines.push(`Fragrance allergens present: ${fields.fragranceAllergens.join(", ")}`);
   if (fields.quidPercent) lines.push(`QUID: ${fields.quidPercent}`);
   if (fields.countryOfOrigin) lines.push(`Origin: ${fields.countryOfOrigin}`);
   if (fields.netQuantity) lines.push(`Net quantity: ${fields.netQuantity}`);
   if (fields.alcoholAbv) lines.push(`Alcohol: ${fields.alcoholAbv}`);
-  if (fields.dateType && fields.bestBefore)
-    lines.push(
-      `${fields.dateType === "use_by" ? "Use by" : "Best before"}: ${fields.bestBefore}`
-    );
-  else if (fields.bestBefore) lines.push(`Date: ${fields.bestBefore}`);
+  if (fields.dateType === "use_by" || fields.dateType === "best_before") {
+    if (fields.bestBefore)
+      lines.push(
+        `${fields.dateType === "use_by" ? "Use by" : "Best before"}: ${fields.bestBefore}`
+      );
+  } else if (fields.dateType === "pao") {
+    if (fields.paoMonths) lines.push(`Period-After-Opening: ${fields.paoMonths}M`);
+  } else if (fields.dateType === "durability") {
+    if (fields.bestBefore) lines.push(`Minimum durability date: ${fields.bestBefore}`);
+  } else if (fields.bestBefore) {
+    lines.push(`Date: ${fields.bestBefore}`);
+  }
   if (fields.batchNumber) lines.push(`Batch/Lot: ${fields.batchNumber}`);
   if (fields.storageInstructions) lines.push(`Storage: ${fields.storageInstructions}`);
   if (fields.responsiblePerson) lines.push(`FBO / Responsible person: ${fields.responsiblePerson}`);
@@ -171,14 +187,14 @@ const COSMETIC_PREVIEW_SYSTEM = `You compose the on-pack copy block for a UK cos
 Line 1: PRODUCT NAME (uppercase, brand line underneath if provided).
 Then labelled sections, each on its own paragraph, skipping empties:
 - Ingredients (INCI): ...
-- Allergens: ...
+- Fragrance allergens: only list allergens supplied in the context, and only if a product type/threshold was given. If none supplied, omit this line.
 - Nominal content: ...
-- Best before / PAO: ...
+- PAO (Period-After-Opening) or minimum durability date: use whichever was supplied in the context.
 - Batch: ...
 - Country of origin: ...
 - Responsible person: ...
 - Certifications: ...
-British English. Concise, factual, retail-ready.`;
+British English. Concise, factual, retail-ready. Never invent fragrance allergens or a shelf-life type that wasn't supplied.`;
 
 const GENERIC_PREVIEW_SYSTEM = COSMETIC_PREVIEW_SYSTEM;
 

@@ -29,12 +29,18 @@ import {
   evaluateLabel,
   deriveWarnings,
   getPack,
+  findAllergensInText,
+  formatAllergenList,
+  splitAllergenHighlights,
+  EU_FRAGRANCE_ALLERGENS,
+  FRAGRANCE_ALLERGEN_THRESHOLD,
   type LabelFields,
   type NutritionTable,
 } from "@/lib/label-rules";
 import { generatePreview, suggestField } from "@/lib/generate-label";
 import { supabase } from "@/integrations/supabase/client";
 import { getLeadId } from "@/lib/lead-tracker";
+import { cn } from "@/lib/utils";
 import LivePreview from "@/components/generator/LivePreview";
 import ComplianceCheck from "@/components/generator/ComplianceCheck";
 
@@ -82,6 +88,14 @@ const GenerateLabelPage = () => {
   const pack = useMemo(() => getPack(fields.category), [fields.category]);
   const { score, rules } = useMemo(() => evaluateLabel(fields), [fields]);
   const derivedWarnings = useMemo(() => deriveWarnings(fields), [fields]);
+  const detectedAllergens = useMemo(
+    () => findAllergensInText(fields.ingredients),
+    [fields.ingredients]
+  );
+  const ingredientSegments = useMemo(
+    () => splitAllergenHighlights(fields.ingredients),
+    [fields.ingredients]
+  );
 
   const hasAnyData = useMemo(
     () =>
@@ -106,6 +120,7 @@ const GenerateLabelPage = () => {
       "storageInstructions",
     ];
     if (pack === "food") base.push("quidPercent", "alcoholAbv");
+    if (pack === "cosmetic") base.push("paoMonths");
     return base;
   }, [pack]);
 
@@ -187,6 +202,13 @@ const GenerateLabelPage = () => {
   const saveLabel = async (): Promise<string> => {
     setSaving(true);
     try {
+      const allergensToSave =
+        pack === "food"
+          ? formatAllergenList(detectedAllergens) || null
+          : pack === "cosmetic"
+          ? fields.fragranceAllergens.join(", ") || null
+          : fields.allergens || null;
+
       const { data, error } = await supabase
         .from("generated_labels")
         .insert({
@@ -194,7 +216,7 @@ const GenerateLabelPage = () => {
           product_name: fields.productName || null,
           category: fields.category || null,
           ingredients: fields.ingredients || null,
-          allergens: fields.allergens || null,
+          allergens: allergensToSave,
           country_of_origin: fields.countryOfOrigin || null,
           net_quantity: fields.netQuantity || null,
           batch_number: fields.batchNumber || null,
@@ -214,6 +236,11 @@ const GenerateLabelPage = () => {
           packaged_protective_atmosphere: fields.packagedProtectiveAtmosphere,
           nano: fields.nano,
           irradiated: fields.irradiated,
+          pao_months: fields.paoMonths || null,
+          cosmetic_product_type: fields.cosmeticProductType || null,
+          fragrance_allergens_json: (fields.fragranceAllergens.length
+            ? fields.fragranceAllergens
+            : null) as never,
         })
         .select("id")
         .single();
@@ -437,20 +464,112 @@ const GenerateLabelPage = () => {
                 />
               )}
               {showFood && (
-                <p className="rounded-md bg-muted/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-                  UK FIC requires the 14 allergens to be emphasised in the list (CAPS or bold).
-                  List ingredients in descending order of weight.
-                </p>
+                <div className="space-y-2">
+                  <p className="rounded-md bg-muted/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                    The 14 UK allergens are detected automatically and emphasised in the
+                    printed ingredients list below — no need to declare them separately.
+                    List ingredients in descending order of weight.
+                  </p>
+                  <div className="rounded-md border bg-muted/20 px-3 py-2">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Ingredients as printed
+                    </p>
+                    {fields.ingredients.trim() ? (
+                      <p className="text-[13px] leading-relaxed">
+                        {ingredientSegments.map((seg, i) =>
+                          seg.isAllergen ? (
+                            <strong key={i} className="font-bold underline">
+                              {seg.text}
+                            </strong>
+                          ) : (
+                            <span key={i}>{seg.text}</span>
+                          )
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-[13px] text-muted-foreground">
+                        Add ingredients above to preview allergen emphasis.
+                      </p>
+                    )}
+                    {detectedAllergens.length > 0 && (
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Detected allergens: {formatAllergenList(detectedAllergens)}
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
-              {withSuggest(
-                "allergens",
-                <Input
-                  id="allergens"
-                  placeholder={showFood ? "e.g. Wheat, Barley" : "e.g. Limonene, Linalool"}
-                  value={fields.allergens}
-                  onChange={(e) => set("allergens", e.target.value)}
-                />
+              {pack === "cosmetic" && (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">
+                      Product type (sets fragrance allergen threshold)
+                    </Label>
+                    <RadioGroup
+                      value={fields.cosmeticProductType}
+                      onValueChange={(v) =>
+                        set("cosmeticProductType", v as LabelFields["cosmeticProductType"])
+                      }
+                      className="flex gap-4"
+                    >
+                      <label className="flex items-center gap-2 text-sm">
+                        <RadioGroupItem value="leave_on" id="cpt-leave" />
+                        <span>
+                          Leave-on ({FRAGRANCE_ALLERGEN_THRESHOLD.leave_on})
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <RadioGroupItem value="rinse_off" id="cpt-rinse" />
+                        <span>
+                          Rinse-off ({FRAGRANCE_ALLERGEN_THRESHOLD.rinse_off})
+                        </span>
+                      </label>
+                    </RadioGroup>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">
+                      Fragrance allergens present above threshold
+                    </Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {EU_FRAGRANCE_ALLERGENS.map((a) => {
+                        const checked = fields.fragranceAllergens.includes(a);
+                        return (
+                          <button
+                            key={a}
+                            type="button"
+                            onClick={() =>
+                              set(
+                                "fragranceAllergens",
+                                checked
+                                  ? fields.fragranceAllergens.filter((x) => x !== a)
+                                  : [...fields.fragranceAllergens, a]
+                              )
+                            }
+                            className={cn(
+                              "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
+                              checked
+                                ? "border-primary bg-primary/10 font-medium text-primary"
+                                : "border-border text-muted-foreground hover:border-foreground/30"
+                            )}
+                          >
+                            {a}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               )}
+              {pack === "generic" &&
+                withSuggest(
+                  "allergens",
+                  <Input
+                    id="allergens"
+                    placeholder="e.g. Contains latex"
+                    value={fields.allergens}
+                    onChange={(e) => set("allergens", e.target.value)}
+                  />
+                )}
               {showFood &&
                 withSuggest(
                   "quidPercent",
@@ -509,6 +628,25 @@ const GenerateLabelPage = () => {
                   </RadioGroup>
                 </div>
               )}
+              {pack === "cosmetic" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Shelf-life declaration</Label>
+                  <RadioGroup
+                    value={fields.dateType || ""}
+                    onValueChange={(v) => set("dateType", v as LabelFields["dateType"])}
+                    className="flex gap-4"
+                  >
+                    <label className="flex items-center gap-2 text-sm">
+                      <RadioGroupItem value="pao" id="dt-pao" />
+                      <span>PAO symbol (≥30 months)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <RadioGroupItem value="durability" id="dt-dur" />
+                      <span>Minimum durability date (&lt;30 months)</span>
+                    </label>
+                  </RadioGroup>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {withSuggest(
                   "batchNumber",
@@ -519,15 +657,25 @@ const GenerateLabelPage = () => {
                     onChange={(e) => set("batchNumber", e.target.value)}
                   />
                 )}
-                {withSuggest(
-                  "bestBefore",
-                  <Input
-                    id="bestBefore"
-                    placeholder={showFood ? "DD/MM/YYYY" : "MM/YYYY"}
-                    value={fields.bestBefore}
-                    onChange={(e) => set("bestBefore", e.target.value)}
-                  />
-                )}
+                {pack === "cosmetic" && fields.dateType === "pao"
+                  ? withSuggest(
+                      "paoMonths",
+                      <Input
+                        id="paoMonths"
+                        placeholder="e.g. 12 (months after opening)"
+                        value={fields.paoMonths}
+                        onChange={(e) => set("paoMonths", e.target.value)}
+                      />
+                    )
+                  : withSuggest(
+                      "bestBefore",
+                      <Input
+                        id="bestBefore"
+                        placeholder={showFood ? "DD/MM/YYYY" : "MM/YYYY"}
+                        value={fields.bestBefore}
+                        onChange={(e) => set("bestBefore", e.target.value)}
+                      />
+                    )}
               </div>
               {withSuggest(
                 "storageInstructions",
@@ -674,7 +822,7 @@ const GenerateLabelPage = () => {
             <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Live digital label
             </h2>
-            <LivePreview preview={preview} loading={previewLoading} hasData={hasAnyData} />
+            <LivePreview preview={preview} loading={previewLoading} hasData={hasAnyData} pack={pack} />
           </section>
 
           <section>
@@ -782,6 +930,7 @@ const FIELD_LABELS: Record<string, string> = {
   storageInstructions: "Storage instructions",
   quidPercent: "QUID declaration",
   alcoholAbv: "Alcohol strength (% vol)",
+  paoMonths: "Period-After-Opening (months)",
 };
 
 export default GenerateLabelPage;

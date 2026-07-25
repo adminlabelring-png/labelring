@@ -45,7 +45,7 @@ import LivePreview from "@/components/generator/LivePreview";
 import ComplianceCheck from "@/components/generator/ComplianceCheck";
 
 import { CATEGORIES } from "@/lib/categories";
-import LeadCaptureDialog, { hasSubmittedLead } from "@/components/LeadCaptureDialog";
+import LeadCaptureDialog, { hasSubmittedLead, getSignupId } from "@/components/LeadCaptureDialog";
 
 const NUTRITION_ROWS: { key: keyof NutritionTable; label: string; placeholder: string }[] = [
   { key: "energyKj", label: "Energy (kJ)", placeholder: "1234" },
@@ -242,6 +242,7 @@ const GenerateLabelPage = () => {
             ? fields.fragranceAllergens
             : null) as never,
           instructions_for_use: fields.instructionsForUse || null,
+          signup_id: getSignupId(),
         })
         .select("id")
         .single();

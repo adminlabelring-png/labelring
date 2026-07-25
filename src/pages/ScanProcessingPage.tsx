@@ -6,6 +6,7 @@ import { useScan, buildScanResult, generateMockResult } from "@/lib/scan-context
 import { computeScanDiff, extractProductName, normalizeProductKey } from "@/lib/scan-diff";
 import { getCurrentLockedVersion, createChangeRequest } from "@/lib/version-lock";
 import { supabase } from "@/integrations/supabase/client";
+import { getSignupId } from "@/components/LeadCaptureDialog";
 import { toast } from "sonner";
 
 const steps = [
@@ -140,6 +141,7 @@ const ScanProcessingPage = () => {
             needs_attention_count: result.needsAttentionCount,
             fields: result.fields as any,
             lead_id: params.get("lead"),
+            signup_id: getSignupId(),
             user_agent: navigator.userAgent,
             referrer: document.referrer || null,
             is_seasonal: options.isSeasonal,

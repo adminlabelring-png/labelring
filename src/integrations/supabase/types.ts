@@ -105,6 +105,7 @@ export type Database = {
           id: string
           name: string
           product_category: string
+          source: string | null
         }
         Insert: {
           company: string
@@ -113,6 +114,7 @@ export type Database = {
           id?: string
           name: string
           product_category: string
+          source?: string | null
         }
         Update: {
           company?: string
@@ -121,6 +123,7 @@ export type Database = {
           id?: string
           name?: string
           product_category?: string
+          source?: string | null
         }
         Relationships: []
       }
@@ -134,9 +137,11 @@ export type Database = {
           category: string | null
           certifications: string | null
           compliance_score: number
+          cosmetic_product_type: string | null
           country_of_origin: string | null
           created_at: string
           date_type: string | null
+          fragrance_allergens_json: Json | null
           id: string
           ingredients: string | null
           irradiated: boolean | null
@@ -146,6 +151,7 @@ export type Database = {
           nutrition_json: Json | null
           pack: string | null
           packaged_protective_atmosphere: boolean | null
+          pao_months: string | null
           preview_text: string | null
           product_name: string | null
           quid_percent: string | null
@@ -162,9 +168,11 @@ export type Database = {
           category?: string | null
           certifications?: string | null
           compliance_score?: number
+          cosmetic_product_type?: string | null
           country_of_origin?: string | null
           created_at?: string
           date_type?: string | null
+          fragrance_allergens_json?: Json | null
           id?: string
           ingredients?: string | null
           irradiated?: boolean | null
@@ -174,6 +182,7 @@ export type Database = {
           nutrition_json?: Json | null
           pack?: string | null
           packaged_protective_atmosphere?: boolean | null
+          pao_months?: string | null
           preview_text?: string | null
           product_name?: string | null
           quid_percent?: string | null
@@ -190,9 +199,11 @@ export type Database = {
           category?: string | null
           certifications?: string | null
           compliance_score?: number
+          cosmetic_product_type?: string | null
           country_of_origin?: string | null
           created_at?: string
           date_type?: string | null
+          fragrance_allergens_json?: Json | null
           id?: string
           ingredients?: string | null
           irradiated?: boolean | null
@@ -202,12 +213,61 @@ export type Database = {
           nutrition_json?: Json | null
           pack?: string | null
           packaged_protective_atmosphere?: boolean | null
+          pao_months?: string | null
           preview_text?: string | null
           product_name?: string | null
           quid_percent?: string | null
           responsible_person?: string | null
           storage_instructions?: string | null
           warnings_json?: Json | null
+        }
+        Relationships: []
+      }
+      insights: {
+        Row: {
+          author_facebook_url: string | null
+          author_linkedin_url: string | null
+          author_name: string | null
+          author_twitter_url: string | null
+          background_image_url: string | null
+          body: string
+          created_at: string
+          excerpt: string | null
+          id: string
+          published: boolean
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_facebook_url?: string | null
+          author_linkedin_url?: string | null
+          author_name?: string | null
+          author_twitter_url?: string | null
+          background_image_url?: string | null
+          body: string
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          published?: boolean
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_facebook_url?: string | null
+          author_linkedin_url?: string | null
+          author_name?: string | null
+          author_twitter_url?: string | null
+          background_image_url?: string | null
+          body?: string
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          published?: boolean
+          slug?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }

@@ -26,7 +26,7 @@ export interface LabelFields {
   responsiblePerson: string;
   certifications: string;
   // UK FIC extensions
-  dateType: "" | "use_by" | "best_before";
+  dateType: "" | "use_by" | "best_before" | "pao" | "durability";
   storageInstructions: string;
   quidPercent: string;
   alcoholAbv: string;
@@ -34,6 +34,10 @@ export interface LabelFields {
   packagedProtectiveAtmosphere: boolean;
   nano: boolean;
   irradiated: boolean;
+  // Cosmetic extensions
+  paoMonths: string;
+  fragranceAllergens: string[];
+  cosmeticProductType: "" | "leave_on" | "rinse_off";
 }
 
 export const emptyLabel: LabelFields = {
@@ -56,6 +60,9 @@ export const emptyLabel: LabelFields = {
   packagedProtectiveAtmosphere: false,
   nano: false,
   irradiated: false,
+  paoMonths: "",
+  fragranceAllergens: [],
+  cosmeticProductType: "",
 };
 
 export const getPack = (category: string): Pack => {
@@ -95,7 +102,7 @@ export const UK_ALLERGENS = [
   "lupin", "mollusc", "mussel", "oyster", "snail", "squid",
 ];
 
-const findAllergensInText = (text: string): string[] => {
+export const findAllergensInText = (text: string): string[] => {
   const lower = text.toLowerCase();
   const found = new Set<string>();
   UK_ALLERGENS.forEach((a) => {
@@ -104,15 +111,77 @@ const findAllergensInText = (text: string): string[] => {
   return [...found];
 };
 
-// Detects allergens in ingredients that aren't emphasised (UPPERCASE or bold cue)
-const allergensAreEmphasised = (ingredients: string): boolean => {
-  const detected = findAllergensInText(ingredients);
-  if (detected.length === 0) return true; // nothing to emphasise
-  // Split ingredient tokens and check each detected allergen appears at least once in ALL CAPS form
-  return detected.every((a) => {
-    const re = new RegExp(`\\b${a.toUpperCase()}\\b`);
-    return re.test(ingredients);
-  });
+export const formatAllergenList = (allergens: string[]): string =>
+  allergens.map((a) => a.replace(/\b\w/g, (c) => c.toUpperCase())).join(", ");
+
+// EU Cosmetic Regulation (EC) 1223/2009 Annex III fragrance allergens.
+// Set to expand under EU 2023/1545, phased in 2026-2028.
+export const EU_FRAGRANCE_ALLERGENS = [
+  "Amyl cinnamal",
+  "Benzyl alcohol",
+  "Cinnamyl alcohol",
+  "Citral",
+  "Eugenol",
+  "Hydroxycitronellal",
+  "Isoeugenol",
+  "Amylcinnamyl alcohol",
+  "Benzyl salicylate",
+  "Cinnamal",
+  "Coumarin",
+  "Geraniol",
+  "Hydroxyisohexyl 3-cyclohexene carboxaldehyde (Lyral)",
+  "Anisyl alcohol",
+  "Benzyl cinnamate",
+  "Farnesol",
+  "Butylphenyl methylpropional (Lilial)",
+  "Linalool",
+  "Benzyl benzoate",
+  "Citronellol",
+  "Hexyl cinnamal",
+  "Limonene",
+  "Methyl heptin carbonate",
+  "Alpha-Isomethyl ionone",
+  "Evernia prunastri extract (oakmoss)",
+  "Evernia furfuracea extract (treemoss)",
+] as const;
+
+// Cosmetic fragrance-allergen labelling thresholds (EU 1223/2009 Art. 19(1)(f))
+export const FRAGRANCE_ALLERGEN_THRESHOLD: Record<"leave_on" | "rinse_off", string> = {
+  leave_on: "0.001%",
+  rinse_off: "0.01%",
+};
+
+export interface AllergenSegment {
+  text: string;
+  isAllergen: boolean;
+}
+
+// Splits ingredients text into segments so callers can render the 14 UK
+// allergens with bold/emphasis styling wherever they're detected, instead
+// of relying on the user to type them in caps themselves.
+export const splitAllergenHighlights = (text: string): AllergenSegment[] => {
+  const detected = findAllergensInText(text);
+  if (detected.length === 0) return [{ text, isAllergen: false }];
+  const pattern = detected
+    .slice()
+    .sort((a, b) => b.length - a.length)
+    .map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  const re = new RegExp(`\\b(${pattern})\\b`, "gi");
+  const segments: AllergenSegment[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, match.index), isAllergen: false });
+    }
+    segments.push({ text: match[0], isAllergen: true });
+    lastIndex = re.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    segments.push({ text: text.slice(lastIndex), isAllergen: false });
+  }
+  return segments;
 };
 
 // Derives regulatory warning phrases based on the ingredients text
@@ -213,16 +282,14 @@ const foodRules = (f: LabelFields): RuleResult[] => {
     },
     {
       key: "allergens_caps",
-      label: "Allergens emphasised (CAPS)",
-      status:
-        detectedAllergens.length === 0
-          ? has(f.allergens)
-            ? "ok"
-            : "review"
-          : allergensAreEmphasised(f.ingredients)
-          ? "ok"
-          : "review",
-      why: "The 14 UK allergens must be emphasised (e.g. CAPITALS or bold) within the ingredients list.",
+      label: "Allergens emphasised in ingredients",
+      status: has(f.ingredients) ? "ok" : "missing",
+      why:
+        detectedAllergens.length > 0
+          ? `Auto-detected and emphasised in the ingredients list: ${formatAllergenList(
+              detectedAllergens
+            )}.`
+          : "No listed allergens detected in the ingredients text.",
     },
     {
       key: "quid",
@@ -361,9 +428,17 @@ const cosmeticRules = (f: LabelFields): RuleResult[] => [
   },
   {
     key: "allergens",
-    label: "Fragrance allergens (EU 26/81)",
-    status: has(f.allergens) ? "ok" : "review",
-    why: "Listed fragrance allergens must appear if above 0.001% (leave-on) or 0.01% (rinse-off).",
+    label: "Fragrance allergens (EU list)",
+    status: f.cosmeticProductType ? "ok" : "review",
+    why: f.cosmeticProductType
+      ? `${
+          f.fragranceAllergens.length
+            ? `Declared: ${f.fragranceAllergens.join(", ")}.`
+            : "None declared."
+        } Threshold: ${FRAGRANCE_ALLERGEN_THRESHOLD[f.cosmeticProductType]} (${
+          f.cosmeticProductType === "rinse_off" ? "rinse-off" : "leave-on"
+        }).`
+      : "Select leave-on or rinse-off, then list any of the EU fragrance allergens present above the threshold.",
   },
   {
     key: "origin",
@@ -391,9 +466,18 @@ const cosmeticRules = (f: LabelFields): RuleResult[] => [
   },
   {
     key: "pao",
-    label: "PAO or best-before ≥ 30 months",
-    status: has(f.bestBefore) ? "ok" : "review",
-    why: "Products lasting <30 months must show a best-before; longer-lasting need a PAO symbol.",
+    label: "PAO symbol or minimum durability date",
+    status:
+      f.dateType === "pao"
+        ? has(f.paoMonths)
+          ? "ok"
+          : "missing"
+        : f.dateType === "durability"
+        ? has(f.bestBefore)
+          ? "ok"
+          : "missing"
+        : "review",
+    why: "Products lasting ≥30 months use a Period-After-Opening (PAO) symbol (e.g. '12M'); shorter shelf life needs a date of minimum durability.",
   },
   {
     key: "batch",

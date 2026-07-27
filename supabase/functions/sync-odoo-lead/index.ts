@@ -74,6 +74,16 @@ async function odooAuthenticate(odooUrl: string, db: string, username: string, a
   return uid as number;
 }
 
+function getSupabaseAdmin() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error("SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not available — sync state not recorded.");
+    return null;
+  }
+  return createClient(supabaseUrl, serviceRoleKey);
+}
+
 function buildEnrichmentNote(table: string, record: Record<string, unknown>): string {
   if (table === "scans") {
     const productName =
@@ -150,10 +160,8 @@ Deno.serve(async (req) => {
         ],
       ]);
 
-      const supabaseUrl = Deno.env.get("SUPABASE_URL");
-      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      if (supabaseUrl && serviceRoleKey) {
-        const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+      const supabaseAdmin = getSupabaseAdmin();
+      if (supabaseAdmin) {
         const { error: updateError } = await supabaseAdmin
           .from("early_access_signups")
           .update({ odoo_lead_id: leadId })
@@ -161,8 +169,6 @@ Deno.serve(async (req) => {
         if (updateError) {
           console.error("Failed to store odoo_lead_id:", updateError.message);
         }
-      } else {
-        console.error("SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not available — odoo_lead_id not stored.");
       }
 
       return new Response(JSON.stringify({ success: true, odoo_lead_id: leadId }), {
@@ -181,6 +187,22 @@ Deno.serve(async (req) => {
         [[payload.odoo_lead_id]],
         { body: note },
       ]);
+
+      // Mark this row as synced so the reconciliation job (which retries
+      // anything that never landed, since pg_net itself never retries)
+      // doesn't post a duplicate note for it.
+      const recordId = (payload.record as { id?: string }).id;
+      const supabaseAdmin = getSupabaseAdmin();
+      if (supabaseAdmin && recordId) {
+        const { error: updateError } = await supabaseAdmin
+          .from(payload.table)
+          .update({ odoo_synced_at: new Date().toISOString() })
+          .eq("id", recordId);
+        if (updateError) {
+          console.error(`Failed to mark ${payload.table} row as synced:`, updateError.message);
+        }
+      }
+
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

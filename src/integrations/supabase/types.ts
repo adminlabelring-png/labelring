@@ -153,6 +153,7 @@ export type Database = {
           nano: boolean | null
           net_quantity: string | null
           nutrition_json: Json | null
+          odoo_synced_at: string | null
           pack: string | null
           packaged_protective_atmosphere: boolean | null
           pao_months: string | null
@@ -186,6 +187,7 @@ export type Database = {
           nano?: boolean | null
           net_quantity?: string | null
           nutrition_json?: Json | null
+          odoo_synced_at?: string | null
           pack?: string | null
           packaged_protective_atmosphere?: boolean | null
           pao_months?: string | null
@@ -219,6 +221,7 @@ export type Database = {
           nano?: boolean | null
           net_quantity?: string | null
           nutrition_json?: Json | null
+          odoo_synced_at?: string | null
           pack?: string | null
           packaged_protective_atmosphere?: boolean | null
           pao_months?: string | null
@@ -462,6 +465,7 @@ export type Database = {
           market: string | null
           mime_type: string | null
           needs_attention_count: number
+          odoo_synced_at: string | null
           product_key: string | null
           product_name: string | null
           referrer: string | null
@@ -486,6 +490,7 @@ export type Database = {
           market?: string | null
           mime_type?: string | null
           needs_attention_count?: number
+          odoo_synced_at?: string | null
           product_key?: string | null
           product_name?: string | null
           referrer?: string | null
@@ -566,7 +571,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      reconcile_odoo_sync: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

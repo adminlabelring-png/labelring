@@ -288,6 +288,11 @@ const GenerateLabelPage = () => {
   };
 
   const handleExport = () => {
+    // Persist in the background, same as Copy QR / Share — unlike those,
+    // export doesn't need the saved row's id, so it shouldn't block the
+    // download waiting on it.
+    saveLabel().catch((e) => console.warn("label persist failed", e));
+
     const doc = new jsPDF();
     const w = doc.internal.pageSize.getWidth();
     doc.setFillColor(30, 64, 120);

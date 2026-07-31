@@ -6,14 +6,14 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are a product label compliance analyst. You receive an image of a product's packaging.
+const SYSTEM_PROMPT = `You are a product label compliance analyst. You receive one or more images of a single product's packaging — often different sides or faces of the same item (front, ingredients/nutrition panel, back-of-pack, base, etc), submitted together as one scan.
 
-CRITICAL RULE: you may only report a field's status as "missing" if you have confirmed you can see the ENTIRE product packaging (all sides, the base, and the top/shoulder where applicable) in the submitted image. If you cannot see enough of the packaging to be sure, use "not_verified" instead — never guess "missing" from a single partial view. Getting this distinction right is the single most important part of your job: a false "missing" on a compliance tool causes real harm to a business relying on it.
+CRITICAL RULE: you may only report a field's status as "missing" if you have confirmed you can see the ENTIRE product packaging (all sides, the base, and the top/shoulder where applicable) across ALL submitted images combined. If you cannot see enough of the packaging to be sure, use "not_verified" instead — never guess "missing" from partial coverage. Getting this distinction right is the single most important part of your job: a false "missing" on a compliance tool causes real harm to a business relying on it.
 
 Your job:
-1. Assess image coverage first. Consider the packaging's shape (bottle, jar, tube, aerosol can, box, pouch, etc.) and judge what fraction of its surface is actually visible in the submitted image. Cylindrical or wraparound packaging (cans, bottles, tubes, jars) almost always has information on faces not visible from a single angle — assume coverage is INCOMPLETE unless the packaging is flat and fully visible in one shot (e.g. a box photographed to show every panel at once), or multiple angles were clearly provided.
+1. Assess image coverage first, across ALL submitted images together — not per image. Consider the packaging's shape (bottle, jar, tube, aerosol can, box, pouch, etc.) and judge what fraction of its surface is visible when you combine everything shown across every image. Cylindrical or wraparound packaging (cans, bottles, tubes, jars) almost always has information on faces not visible from a single angle — assume coverage is INCOMPLETE unless the combined images clearly show every panel (front, back, base, and any wraparound sides), or the packaging is flat and fully visible in one shot (e.g. a box photographed to show every panel at once).
 
-2. Extract all visible text from the image (OCR). Be thorough — examine every area including:
+2. Extract all visible text from every image (OCR). Treat all submitted images as one combined view of the same product — a field found in any one image counts as found; don't report a field as missing just because it wasn't in the first image if it's visible in another. Be thorough — examine every area including:
    - Near barcodes and QR codes (batch/lot numbers are often printed adjacent to or below barcodes)
    - Bottom edges and corners of the label
    - Small print areas
@@ -73,7 +73,12 @@ class AIError extends Error {
   }
 }
 
-async function callOpenRouter(system: string, userText: string, mimeType: string, imageBase64: string) {
+interface ImageInput {
+  mimeType: string;
+  base64: string;
+}
+
+async function callOpenRouter(system: string, userText: string, images: ImageInput[]) {
   const key = Deno.env.get("OPENROUTER_API_KEY");
   if (!key) throw new Error("OPENROUTER_API_KEY is not configured");
 
@@ -93,7 +98,10 @@ async function callOpenRouter(system: string, userText: string, mimeType: string
           role: "user",
           content: [
             { type: "text", text: userText },
-            { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+            ...images.map((img) => ({
+              type: "image_url",
+              image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
+            })),
           ],
         },
       ],
@@ -112,7 +120,7 @@ async function callOpenRouter(system: string, userText: string, mimeType: string
   return content;
 }
 
-async function callGemini(system: string, userText: string, mimeType: string, imageBase64: string) {
+async function callGemini(system: string, userText: string, images: ImageInput[]) {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY is not configured");
 
@@ -129,7 +137,7 @@ async function callGemini(system: string, userText: string, mimeType: string, im
             role: "user",
             parts: [
               { text: userText },
-              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+              ...images.map((img) => ({ inline_data: { mime_type: img.mimeType, data: img.base64 } })),
             ],
           },
         ],
@@ -149,10 +157,10 @@ async function callGemini(system: string, userText: string, mimeType: string, im
   return content;
 }
 
-async function callAI(system: string, userText: string, mimeType: string, imageBase64: string) {
+async function callAI(system: string, userText: string, images: ImageInput[]) {
   const provider = (Deno.env.get("AI_PROVIDER") || "openrouter").toLowerCase();
-  if (provider === "gemini") return callGemini(system, userText, mimeType, imageBase64);
-  return callOpenRouter(system, userText, mimeType, imageBase64);
+  if (provider === "gemini") return callGemini(system, userText, images);
+  return callOpenRouter(system, userText, images);
 }
 
 serve(async (req) => {
@@ -161,11 +169,11 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64, fileName, isSeasonal, seasonTag } = await req.json();
+    const { images: rawImages, isSeasonal, seasonTag } = await req.json();
 
-    if (!imageBase64) {
+    if (!Array.isArray(rawImages) || rawImages.length === 0) {
       return new Response(
-        JSON.stringify({ error: "imageBase64 is required" }),
+        JSON.stringify({ error: "images (non-empty array) is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -174,17 +182,24 @@ serve(async (req) => {
       ? `\n\nSEASONAL / TEMPORARY SKU RISK MODE IS ACTIVE${seasonTag ? ` (tag: ${seasonTag})` : ""}.\nApply stricter scrutiny: be especially critical about (a) on-pack promotional claims and "limited edition" wording that must still meet labelling rules, (b) batch/lot codes — seasonal runs often skip these, (c) date markings (best-before / expiry) clearly visible, (d) allergen carry-over from shared seasonal production lines, (e) net quantity changes for promo packs / multipacks, (f) any temporary co-branding or partner logos that may need additional declarations. When in doubt, mark fields as "low_confidence" or "not_verified" rather than "verified" or "missing".`
       : "";
 
-    // Detect mime type from base64 header or default to jpeg
-    let mimeType = "image/jpeg";
-    if (imageBase64.startsWith("/9j/")) mimeType = "image/jpeg";
-    else if (imageBase64.startsWith("iVBOR")) mimeType = "image/png";
-    else if (imageBase64.startsWith("JVBER")) mimeType = "application/pdf";
+    // Detect mime type per image from its base64 header, default to jpeg
+    const images: ImageInput[] = rawImages.map((img: { base64: string }) => {
+      let mimeType = "image/jpeg";
+      if (img.base64.startsWith("/9j/")) mimeType = "image/jpeg";
+      else if (img.base64.startsWith("iVBOR")) mimeType = "image/png";
+      else if (img.base64.startsWith("JVBER")) mimeType = "application/pdf";
+      return { mimeType, base64: img.base64 };
+    });
 
-    const userText = `Analyze this product label image. File name: ${fileName || "unknown"}. Extract all fields and return JSON only.`;
+    const fileNames = rawImages.map((img: { fileName?: string }) => img.fileName || "unknown").join(", ");
+    const userText =
+      images.length > 1
+        ? `Analyze these ${images.length} images together — they are different sides/faces of the same product's packaging, submitted as one scan. File names: ${fileNames}. Extract all fields and return JSON only.`
+        : `Analyze this product label image. File name: ${fileNames}. Extract all fields and return JSON only.`;
 
     let content: string;
     try {
-      content = await callAI(SYSTEM_PROMPT + seasonalAddendum, userText, mimeType, imageBase64);
+      content = await callAI(SYSTEM_PROMPT + seasonalAddendum, userText, images);
     } catch (e) {
       if (e instanceof AIError) {
         if (e.status === 429) {

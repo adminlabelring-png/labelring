@@ -31,15 +31,18 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
+const displayFileName = (files: File[]): string =>
+  files.length > 1 ? `${files[0].name} +${files.length - 1} more` : files[0].name;
+
 const ScanProcessingPage = () => {
-  const { file, options, setResult } = useScan();
+  const { files, options, setResult } = useScan();
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const calledRef = useRef(false);
 
   useEffect(() => {
-    if (!file) {
+    if (files.length === 0) {
       navigate("/scan", { replace: true });
       return;
     }
@@ -57,12 +60,13 @@ const ScanProcessingPage = () => {
 
     const analyzeLabel = async () => {
       try {
-        const imageBase64 = await fileToBase64(file);
+        const images = await Promise.all(
+          files.map(async (f) => ({ base64: await fileToBase64(f), fileName: f.name }))
+        );
 
         const { data, error } = await supabase.functions.invoke("analyze-label", {
           body: {
-            imageBase64,
-            fileName: file.name,
+            images,
             isSeasonal: options.isSeasonal,
             seasonTag: options.seasonTag,
           },
@@ -84,7 +88,7 @@ const ScanProcessingPage = () => {
         }
         if (data?.error) throw new Error(data.error);
 
-        const result = buildScanResult(file.name, data);
+        const result = buildScanResult(displayFileName(files), data);
         result.isSeasonal = options.isSeasonal;
         result.seasonTag = options.seasonTag;
 
@@ -121,20 +125,30 @@ const ScanProcessingPage = () => {
         result.productKey = productKey;
         result.productName = productName;
 
-        // Persist scan + file, then check locked version & create change request
+        // Persist scan + all images, then check locked version & create change request
         try {
-          const ext = file.name.split(".").pop() ?? "bin";
-          const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
-          const { error: upErr } = await supabase.storage
-            .from("scans")
-            .upload(path, file, { contentType: file.type, upsert: false });
-          if (upErr) console.warn("scan upload failed", upErr);
+          const datePrefix = new Date().toISOString().slice(0, 10);
+          const uploaded = await Promise.all(
+            files.map(async (f) => {
+              const ext = f.name.split(".").pop() ?? "bin";
+              const path = `${datePrefix}/${crypto.randomUUID()}.${ext}`;
+              const { error: upErr } = await supabase.storage
+                .from("scans")
+                .upload(path, f, { contentType: f.type, upsert: false });
+              if (upErr) console.warn("scan upload failed", upErr);
+              return { path: upErr ? null : path, file_name: f.name, mime_type: f.type };
+            })
+          );
+
+          const primary = uploaded[0];
+          const images = uploaded.some((u) => u.path) ? uploaded : null;
 
           const params = new URLSearchParams(window.location.search);
           const { data: inserted } = await supabase.from("scans" as any).insert({
-            file_name: file.name,
-            file_path: upErr ? null : path,
-            mime_type: file.type,
+            file_name: primary.file_name,
+            file_path: primary.path,
+            mime_type: primary.mime_type,
+            images: images as any,
             category: result.category,
             found_count: result.foundCount,
             total_count: result.totalCount,
@@ -204,7 +218,7 @@ const ScanProcessingPage = () => {
         console.error("Analysis failed, using fallback:", err);
         toast.error("AI analysis failed — showing demo results instead");
 
-        const fallback = generateMockResult(file.name);
+        const fallback = generateMockResult(displayFileName(files));
         fallback.isSeasonal = options.isSeasonal;
         fallback.seasonTag = options.seasonTag;
         setProgress(100);
@@ -221,7 +235,7 @@ const ScanProcessingPage = () => {
       clearInterval(stepTimer);
       clearInterval(progressTimer);
     };
-  }, [file, options, navigate, setResult]);
+  }, [files, options, navigate, setResult]);
 
   return (
     <div className="max-w-md mx-auto flex flex-col items-center justify-center min-h-[60vh] space-y-8">
@@ -260,9 +274,10 @@ const ScanProcessingPage = () => {
         <p className="text-xs text-muted-foreground text-center mt-2">{Math.min(progress, 100)}%</p>
       </div>
 
-      {file && (
+      {files.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          File: {file.name}
+          {files.length > 1 ? `${files.length} images: ` : "File: "}
+          {files.map((f) => f.name).join(", ")}
         </p>
       )}
     </div>

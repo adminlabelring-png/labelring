@@ -26,7 +26,7 @@ const AdminLeadsPage = () => {
   const [scans, setScans] = useState<any[]>([]);
   const [loadingScans, setLoadingScans] = useState(false);
   const [activeScan, setActiveScan] = useState<any | null>(null);
-  const [scanFileUrl, setScanFileUrl] = useState<string | null>(null);
+  const [scanFileUrls, setScanFileUrls] = useState<{ url: string; mimeType: string | null; fileName: string }[]>([]);
   const [activeScanLocked, setActiveScanLocked] = useState<ProductVersion | null>(null);
 
   const [pendingRequests, setPendingRequests] = useState<ChangeRequest[]>([]);
@@ -69,14 +69,26 @@ const AdminLeadsPage = () => {
 
   const openScan = async (scan: any) => {
     setActiveScan(scan);
-    setScanFileUrl(null);
+    setScanFileUrls([]);
     setActiveScanLocked(null);
-    if (scan.file_path) {
-      const { data, error } = await supabase.storage
-        .from("scans")
-        .createSignedUrl(scan.file_path, 60 * 10);
-      if (!error && data?.signedUrl) setScanFileUrl(data.signedUrl);
-    }
+
+    const images: { path: string; file_name: string; mime_type: string | null }[] =
+      Array.isArray(scan.images) && scan.images.length > 0
+        ? scan.images
+        : scan.file_path
+        ? [{ path: scan.file_path, file_name: scan.file_name, mime_type: scan.mime_type }]
+        : [];
+
+    const urls = await Promise.all(
+      images.map(async (img) => {
+        if (!img.path) return null;
+        const { data, error } = await supabase.storage.from("scans").createSignedUrl(img.path, 60 * 10);
+        if (error || !data?.signedUrl) return null;
+        return { url: data.signedUrl, mimeType: img.mime_type, fileName: img.file_name };
+      })
+    );
+    setScanFileUrls(urls.filter((u): u is { url: string; mimeType: string | null; fileName: string } => u !== null));
+
     const locked = await getLockedVersionByScan(scan.id);
     setActiveScanLocked(locked);
   };
@@ -501,14 +513,23 @@ const AdminLeadsPage = () => {
                 </div>
               )}
 
-              {scanFileUrl && (
-                activeScan.mime_type?.startsWith("image/") ? (
-                  <img src={scanFileUrl} alt={activeScan.file_name} className="w-full max-h-96 object-contain rounded border bg-muted" />
-                ) : (
-                  <a href={scanFileUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline">
-                    Open original file ↗
-                  </a>
-                )
+              {scanFileUrls.length > 0 && (
+                <div className={scanFileUrls.length > 1 ? "grid grid-cols-2 gap-2" : ""}>
+                  {scanFileUrls.map((img, i) =>
+                    img.mimeType?.startsWith("image/") ? (
+                      <img
+                        key={i}
+                        src={img.url}
+                        alt={img.fileName}
+                        className="w-full max-h-96 object-contain rounded border bg-muted"
+                      />
+                    ) : (
+                      <a key={i} href={img.url} target="_blank" rel="noreferrer" className="text-sm text-primary underline">
+                        Open original file ({img.fileName}) ↗
+                      </a>
+                    )
+                  )}
+                </div>
               )}
 
               <div className="rounded border divide-y">

@@ -60,8 +60,8 @@ export interface ScanOptions {
 }
 
 interface ScanContextType {
-  file: File | null;
-  setFile: (f: File | null) => void;
+  files: File[];
+  setFiles: (f: File[]) => void;
   options: ScanOptions;
   setOptions: (o: ScanOptions) => void;
   result: ScanResult | null;
@@ -74,18 +74,18 @@ const defaultOptions: ScanOptions = { isSeasonal: false, seasonTag: null };
 const ScanContext = createContext<ScanContextType | null>(null);
 
 export const ScanProvider = ({ children }: { children: ReactNode }) => {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [options, setOptions] = useState<ScanOptions>(defaultOptions);
   const [result, setResult] = useState<ScanResult | null>(null);
 
   const reset = () => {
-    setFile(null);
+    setFiles([]);
     setResult(null);
     setOptions(defaultOptions);
   };
 
   return (
-    <ScanContext.Provider value={{ file, setFile, options, setOptions, result, setResult, reset }}>
+    <ScanContext.Provider value={{ files, setFiles, options, setOptions, result, setResult, reset }}>
       {children}
     </ScanContext.Provider>
   );

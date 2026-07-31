@@ -460,6 +460,7 @@ export type Database = {
           file_path: string | null
           found_count: number
           id: string
+          images: Json | null
           is_seasonal: boolean
           lead_id: string | null
           market: string | null
@@ -485,6 +486,7 @@ export type Database = {
           file_path?: string | null
           found_count?: number
           id?: string
+          images?: Json | null
           is_seasonal?: boolean
           lead_id?: string | null
           market?: string | null
@@ -510,11 +512,13 @@ export type Database = {
           file_path?: string | null
           found_count?: number
           id?: string
+          images?: Json | null
           is_seasonal?: boolean
           lead_id?: string | null
           market?: string | null
           mime_type?: string | null
           needs_attention_count?: number
+          odoo_synced_at?: string | null
           product_key?: string | null
           product_name?: string | null
           referrer?: string | null

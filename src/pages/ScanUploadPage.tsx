@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileImage, FileText, X, Camera, ImageIcon, Sparkles } from "lucide-react";
+import { Upload, FileImage, FileText, X, Camera, ImageIcon, Sparkles, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useScan } from "@/lib/scan-context";
@@ -10,48 +10,62 @@ import LeadCaptureDialog, { hasSubmittedLead } from "@/components/LeadCaptureDia
 
 const ACCEPTED = ".jpg,.jpeg,.png,.pdf";
 const SEASON_TAGS = ["Christmas", "Diwali", "Easter", "Summer", "Promo Pack", "Limited Edition"];
+const MAX_IMAGES = 6;
+
+interface StagedFile {
+  file: File;
+  preview: string | null;
+}
 
 const ScanUploadPage = () => {
-  const { setFile, options, setOptions } = useScan();
+  const { setFiles: setContextFiles, options, setOptions } = useScan();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
   const [dragOver, setDragOver] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [staged, setStaged] = useState<StagedFile[]>([]);
   const [leadOpen, setLeadOpen] = useState(false);
 
-  const handleFile = useCallback((file: File) => {
-    setSelectedFile(file);
-    if (file.type.startsWith("image/")) {
-      const url = URL.createObjectURL(file);
-      setPreview(url);
-    } else {
-      setPreview(null);
-    }
+  useEffect(() => {
+    return () => {
+      staged.forEach((s) => s.preview && URL.revokeObjectURL(s.preview));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const addFiles = useCallback((newFiles: File[]) => {
+    if (newFiles.length === 0) return;
+    setStaged((prev) => {
+      const room = MAX_IMAGES - prev.length;
+      const toAdd = newFiles.slice(0, Math.max(room, 0));
+      const additions: StagedFile[] = toAdd.map((file) => ({
+        file,
+        preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      }));
+      return [...prev, ...additions];
+    });
   }, []);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
-  }, [handleFile]);
+    addFiles(Array.from(e.dataTransfer.files));
+  }, [addFiles]);
 
   const onSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) handleFile(f);
-  }, [handleFile]);
+    addFiles(Array.from(e.target.files ?? []));
+    e.target.value = "";
+  }, [addFiles]);
 
   const proceedToScan = () => {
-    if (!selectedFile) return;
-    setFile(selectedFile);
+    if (staged.length === 0) return;
+    setContextFiles(staged.map((s) => s.file));
     navigate("/scan/processing");
   };
 
   const startScan = () => {
-    if (!selectedFile) return;
+    if (staged.length === 0) return;
     if (hasSubmittedLead()) {
       proceedToScan();
     } else {
@@ -59,9 +73,17 @@ const ScanUploadPage = () => {
     }
   };
 
+  const removeAt = (index: number) => {
+    setStaged((prev) => {
+      const target = prev[index];
+      if (target?.preview) URL.revokeObjectURL(target.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
   const clear = () => {
-    setSelectedFile(null);
-    setPreview(null);
+    staged.forEach((s) => s.preview && URL.revokeObjectURL(s.preview));
+    setStaged([]);
     if (inputRef.current) inputRef.current.value = "";
     if (cameraRef.current) cameraRef.current.value = "";
   };
@@ -139,31 +161,52 @@ const ScanUploadPage = () => {
   if (isMobile) {
     return (
       <div className="flex flex-col min-h-[80vh] px-2">
-        <input ref={inputRef} type="file" accept={ACCEPTED} onChange={onSelect} className="hidden" />
+        <input ref={inputRef} type="file" accept={ACCEPTED} multiple onChange={onSelect} className="hidden" />
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={onSelect} className="hidden" />
 
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 pb-6">
           <h1 className="text-xl font-semibold tracking-tight">Scan your label</h1>
-          <p className="text-sm text-muted-foreground mt-1">Take a photo or upload an image to get started</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {staged.length > 0
+              ? "Add every side that has label text — front, ingredients panel, back"
+              : "Take a photo or upload an image to get started"}
+          </p>
         </motion.div>
 
-        {selectedFile ? (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex-1 flex flex-col items-center justify-center gap-4">
-            {preview ? (
-              <img src={preview} alt="Label preview" className="max-h-48 rounded-xl object-contain border" />
-            ) : (
-              <FileText className="h-20 w-20 text-primary" />
-            )}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium truncate max-w-[200px]">{selectedFile.name}</span>
-              <button onClick={clear} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
+        {staged.length > 0 ? (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex-1 flex flex-col gap-4 justify-center">
+            <div className="grid grid-cols-3 gap-2">
+              {staged.map((s, i) => (
+                <div key={i} className="relative aspect-square rounded-lg border overflow-hidden bg-muted">
+                  {s.preview ? (
+                    <img src={s.preview} alt={`Label side ${i + 1}`} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-primary" />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => removeAt(i)}
+                    className="absolute top-1 right-1 rounded-full bg-background/90 p-1 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {staged.length < MAX_IMAGES && (
+                <button
+                  onClick={() => inputRef.current?.click()}
+                  className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                  <span className="text-[10px]">Add side</span>
+                </button>
+              )}
             </div>
-            <div className="w-full max-w-xs">{seasonalPanel}</div>
-            <Button onClick={startScan} size="lg" className="w-full max-w-xs gap-2 h-14 text-base">
+            <div className="w-full max-w-xs mx-auto">{seasonalPanel}</div>
+            <Button onClick={startScan} size="lg" className="w-full max-w-xs mx-auto gap-2 h-14 text-base">
               <FileImage className="h-5 w-5" />
-              Scan Label
+              Scan Label{staged.length > 1 ? ` (${staged.length} images)` : ""}
             </Button>
           </motion.div>
         ) : (
@@ -185,7 +228,9 @@ const ScanUploadPage = () => {
               <ImageIcon className="h-6 w-6" />
               Upload Image
             </Button>
-            <p className="text-xs text-muted-foreground text-center mt-2">Supports JPG, PNG, PDF</p>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Supports JPG, PNG, PDF · has label on more than one side? You can add more photos next
+            </p>
           </motion.div>
         )}
         {leadDialog}
@@ -199,49 +244,73 @@ const ScanUploadPage = () => {
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-semibold tracking-tight">Upload your label</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Drop an image or PDF of your product label to get started
+          {staged.length > 0
+            ? "Add every side that has label text — front, ingredients panel, back-of-pack"
+            : "Drop an image or PDF of your product label to get started"}
         </p>
       </motion.div>
 
-      {/* Drop zone */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
-        onClick={() => !selectedFile && inputRef.current?.click()}
-        className={`relative rounded-xl border-2 border-dashed p-12 text-center cursor-pointer transition-colors ${
-          dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-        }`}
-      >
-        <input ref={inputRef} type="file" accept={ACCEPTED} onChange={onSelect} className="hidden" />
-
-        {selectedFile ? (
-          <div className="space-y-4">
-            {preview ? (
-              <img src={preview} alt="Label preview" className="mx-auto max-h-48 rounded-lg object-contain" />
-            ) : (
-              <FileText className="h-16 w-16 text-primary mx-auto" />
-            )}
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-sm font-medium">{selectedFile.name}</span>
-              <button onClick={(e) => { e.stopPropagation(); clear(); }} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
+      {staged.length > 0 ? (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="space-y-3">
+          <div className="grid grid-cols-4 gap-3">
+            {staged.map((s, i) => (
+              <div key={i} className="relative aspect-square rounded-lg border overflow-hidden bg-muted">
+                {s.preview ? (
+                  <img src={s.preview} alt={`Label side ${i + 1}`} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <FileText className="h-8 w-8 text-primary" />
+                  </div>
+                )}
+                <div className="absolute bottom-0 inset-x-0 bg-background/80 px-1.5 py-0.5 text-[10px] truncate">
+                  {s.file.name}
+                </div>
+                <button
+                  onClick={() => removeAt(i)}
+                  className="absolute top-1 right-1 rounded-full bg-background/90 p-1 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            {staged.length < MAX_IMAGES && (
+              <button
+                onClick={() => inputRef.current?.click()}
+                className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+              >
+                <Plus className="h-6 w-6" />
+                <span className="text-xs">Add side</span>
               </button>
-            </div>
+            )}
           </div>
-        ) : (
+          <p className="text-xs text-muted-foreground">
+            {staged.length} of {MAX_IMAGES} images added
+          </p>
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          onClick={() => inputRef.current?.click()}
+          className={`relative rounded-xl border-2 border-dashed p-12 text-center cursor-pointer transition-colors ${
+            dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+          }`}
+        >
           <div className="space-y-3">
             <Upload className="h-12 w-12 text-muted-foreground mx-auto" />
             <div>
               <p className="text-sm font-medium">Drop your label here or click to browse</p>
-              <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF</p>
+              <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG, PDF · select multiple to add every side at once</p>
             </div>
           </div>
-        )}
-      </motion.div>
+        </motion.div>
+      )}
+
+      <input ref={inputRef} type="file" accept={ACCEPTED} multiple onChange={onSelect} className="hidden" />
 
       {seasonalPanel}
 
@@ -252,9 +321,9 @@ const ScanUploadPage = () => {
         transition={{ delay: 0.1 }}
         className="flex flex-col sm:flex-row gap-3"
       >
-        <Button onClick={startScan} disabled={!selectedFile} size="lg" className="flex-1 gap-2">
+        <Button onClick={startScan} disabled={staged.length === 0} size="lg" className="flex-1 gap-2">
           <FileImage className="h-4 w-4" />
-          Scan Label
+          Scan Label{staged.length > 1 ? ` (${staged.length} images)` : ""}
         </Button>
         <Button
           variant="outline"
@@ -263,8 +332,13 @@ const ScanUploadPage = () => {
           onClick={() => inputRef.current?.click()}
         >
           <Camera className="h-4 w-4" />
-          Take Photo
+          {staged.length > 0 ? "Add More" : "Take Photo"}
         </Button>
+        {staged.length > 0 && (
+          <Button variant="ghost" size="lg" onClick={clear}>
+            Clear all
+          </Button>
+        )}
       </motion.div>
       {leadDialog}
     </div>

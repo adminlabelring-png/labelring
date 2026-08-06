@@ -2,8 +2,9 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Tag, Database, ClipboardCheck,
   Factory, CalendarClock, History, QrCode,
-  Users, Settings, CircleDot,
+  Users, Settings,
 } from "lucide-react";
+import Logo from "@/components/Logo";
 
 const groups = [
   {
@@ -42,9 +43,8 @@ const WorkspaceSidebar = ({ onNavigate }: Props) => {
 
   return (
     <aside className="flex h-full w-60 flex-col bg-sidebar border-r border-sidebar-border md:fixed md:inset-y-0 md:left-0 md:z-30">
-      <div className="flex h-14 items-center gap-2.5 px-5 border-b border-sidebar-border shrink-0">
-        <CircleDot className="h-6 w-6 text-sidebar-primary" />
-        <span className="text-base font-semibold text-sidebar-primary tracking-tight">Labelring</span>
+      <div className="flex h-14 items-center px-5 border-b border-sidebar-border shrink-0">
+        <Logo iconClassName="h-6 w-6" textClassName="text-base text-sidebar-primary" />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">

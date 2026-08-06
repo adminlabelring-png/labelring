@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Labelring - Product Labelling & Compliance</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
     <meta name="description" content="Labelring helps UK brands automate label compliance, verify product data, and prepare for EU Digital Product Passport requirements. Trusted by regulated consumer brands.">
     <meta name="author" content="Labelring" />
 
@@ -16,6 +18,23 @@
     <meta name="twitter:title" content="Labelring - Product Labelling & Compliance">
     <meta name="twitter:description" content="Automate UK label compliance, verify product data, and get ready for EU Digital Product Passport.">
     <link rel="canonical" href="/" />
+
+    <script type="text/javascript">
+      // Syncs the .dark class (index.css's dark palette, incl. the logo
+      // wordmark's color) to the OS/browser color-scheme preference, and
+      // keeps it in sync if that preference changes while the tab is open.
+      // Runs before first paint to avoid a flash of the wrong theme.
+      (function () {
+        var media = window.matchMedia("(prefers-color-scheme: dark)");
+        var apply = function (isDark) {
+          document.documentElement.classList.toggle("dark", isDark);
+        };
+        apply(media.matches);
+        media.addEventListener("change", function (e) {
+          apply(e.matches);
+        });
+      })();
+    </script>
 
     <script type="text/javascript">
       // Single Page Apps for GitHub Pages

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSeo } from "@/hooks/use-seo";
 
 interface LabelRow {
   id: string;
@@ -50,6 +51,15 @@ const PublicLabelPage = () => {
       setLoading(false);
     })();
   }, [id]);
+
+  // Auto-generated, per-user product records — not curated content, so
+  // kept out of search results by default to avoid diluting the site
+  // with thin/duplicate pages at scale.
+  useSeo({
+    title: label ? `${label.product_name || "Product"} label | Labelring` : "Label | Labelring",
+    description: "A digital product label generated with Labelring.",
+    noindex: true,
+  });
 
   if (loading) {
     return (

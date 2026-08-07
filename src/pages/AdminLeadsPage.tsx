@@ -14,8 +14,11 @@ import { toast } from "sonner";
 import { RefreshCw, FileImage, CheckCircle, AlertTriangle, XCircle, Lock, History } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { lockScanAsVersion, getPendingRequests, decideChangeRequest, getLockedVersionByScan, type ChangeRequest, type ProductVersion } from "@/lib/version-lock";
+import { useSeo } from "@/hooks/use-seo";
 
 const AdminLeadsPage = () => {
+  useSeo({ title: "Admin | Labelring", description: "Labelring admin.", noindex: true });
+
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [email, setEmail] = useState("");

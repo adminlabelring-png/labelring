@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import MarkdownContent from "@/components/MarkdownContent";
 import { ArrowLeft, ChevronRight, Twitter, Linkedin, Facebook } from "lucide-react";
+import { useSeo, SITE_URL } from "@/hooks/use-seo";
 
 interface Insight {
   id: string;
@@ -17,6 +18,7 @@ interface Insight {
   author_linkedin_url: string | null;
   author_facebook_url: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 const initials = (name: string) =>
@@ -49,6 +51,29 @@ const InsightPostPage = () => {
         setLoading(false);
       });
   }, [slug]);
+
+  useSeo({
+    title: post ? `${post.title} | Labelring Insights` : "Labelring Insights",
+    description: post?.excerpt || "UK product labelling compliance guide from Labelring.",
+    path: `/insights/${slug ?? ""}`,
+    type: "article",
+    image: post?.background_image_url || undefined,
+    noindex: notFound,
+    jsonLd: post
+      ? {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: post.title,
+          description: post.excerpt || undefined,
+          image: post.background_image_url || undefined,
+          author: { "@type": "Person", name: post.author_name || "Labelring" },
+          publisher: { "@type": "Organization", name: "Labelring Ltd" },
+          datePublished: post.created_at,
+          dateModified: post.updated_at || post.created_at,
+          mainEntityOfPage: { "@type": "WebPage", "@id": `${SITE_URL}/insights/${slug}` },
+        }
+      : undefined,
+  });
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;

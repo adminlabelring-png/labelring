@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useScan, DetectedField, getOverallAssessment, getAssessmentSummary } from "@/lib/scan-context";
 import { generateComplianceReport } from "@/lib/generate-report";
 import { cn } from "@/lib/utils";
+import { useSeo } from "@/hooks/use-seo";
 
 const statusIcon = (status: DetectedField["status"]) => {
   switch (status) {
@@ -35,6 +36,10 @@ const statusBadgeClass = (status: DetectedField["status"]) => {
 };
 
 const ScanResultsPage = () => {
+  // Session-specific scan output, not stable content — nothing here for
+  // a cold crawl to index.
+  useSeo({ title: "Your scan results | Labelring", description: "Labelring scan results.", noindex: true });
+
   const { result, reset } = useScan();
   const navigate = useNavigate();
   const [category, setCategory] = useState(result?.category ?? "Cosmetic");

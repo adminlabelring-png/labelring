@@ -48,6 +48,7 @@ import ComplianceCheck from "@/components/generator/ComplianceCheck";
 
 import { CATEGORIES } from "@/lib/categories";
 import LeadCaptureDialog, { hasSubmittedLead, getSignupId } from "@/components/LeadCaptureDialog";
+import { useSeo } from "@/hooks/use-seo";
 
 const NUTRITION_ROWS: { key: keyof NutritionTable; label: string; placeholder: string }[] = [
   { key: "energyKj", label: "Energy (kJ)", placeholder: "1234" },
@@ -61,6 +62,13 @@ const NUTRITION_ROWS: { key: keyof NutritionTable; label: string; placeholder: s
 ];
 
 const GenerateLabelPage = () => {
+  useSeo({
+    title: "Create a Compliant Product Label | Labelring",
+    description:
+      "Generate a UK-compliant digital product label with built-in ingredient, allergen, nutrition, and regulatory checks for food and cosmetics.",
+    path: "/generate",
+  });
+
   const [fields, setFields] = useState<LabelFields>(emptyLabel);
   const [preview, setPreview] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);

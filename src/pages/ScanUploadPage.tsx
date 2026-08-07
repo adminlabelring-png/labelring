@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useScan } from "@/lib/scan-context";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSeo } from "@/hooks/use-seo";
 import LeadCaptureDialog, { hasSubmittedLead } from "@/components/LeadCaptureDialog";
 
 const ACCEPTED = ".jpg,.jpeg,.png,.pdf";
@@ -18,6 +19,13 @@ interface StagedFile {
 }
 
 const ScanUploadPage = () => {
+  useSeo({
+    title: "Free AI Label Checker — Scan Your Product Label | Labelring",
+    description:
+      "Upload a photo of your product label and get an instant AI-powered compliance check against UK food and cosmetic labelling regulations.",
+    path: "/scan",
+  });
+
   const { setFiles: setContextFiles, options, setOptions } = useScan();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);

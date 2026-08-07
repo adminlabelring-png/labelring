@@ -13,6 +13,7 @@ import ComparisonTable from "@/components/landing/ComparisonTable";
 import RegulationCards from "@/components/landing/RegulationCards";
 import EarlyAccessForm from "@/components/landing/EarlyAccessForm";
 import LandingFooter from "@/components/landing/LandingFooter";
+import { useSeo } from "@/hooks/use-seo";
 
 const audiences = [
   {
@@ -51,6 +52,13 @@ const howItWorks = [
 ];
 
 const LandingPage = () => {
+  useSeo({
+    title: "Labelring | Product Label Compliance",
+    description:
+      "AI-powered product label compliance software for UK food, cosmetic, and consumer brands. Check labels against UK labelling regulations and prepare for the EU Digital Product Passport.",
+    path: "/",
+  });
+
   return (
     <div className="space-y-14 pb-4">
       {/* HERO */}

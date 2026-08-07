@@ -72,10 +72,10 @@ const LandingPage = () => {
               <Sparkles className="h-3 w-3" /> Early access · UK 2026 regulation ready
             </span>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight leading-[1.05]">
-              Your shortcut to compliant products.
+              Check Your Product Label Compliance
             </h1>
             <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
-              Create digital labels, manage product data, and stay ahead of changing regulations, all in one place.
+              Scan your label, identify potential compliance issues, and make better-informed product labelling decisions.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <Link to="/generate">
@@ -90,6 +90,12 @@ const LandingPage = () => {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
+              <a href="#early-access">
+                <Button variant="outline" size="lg" className="gap-2">
+                  Check Your Compliance
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </a>
               <a href="#how-it-works">
                 <Button variant="ghost" size="lg" className="gap-1">
                   See how it works <ArrowRight className="h-4 w-4" />

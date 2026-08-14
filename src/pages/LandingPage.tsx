@@ -94,7 +94,7 @@ const LandingPage = () => {
               </Link>
               <Link to="/scan">
                 <Button variant="outline" size="lg" className="gap-2">
-                  Scan to check compliance
+                  Check My Label
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>

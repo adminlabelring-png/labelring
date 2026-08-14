@@ -27,6 +27,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Install Playwright browser (used by postbuild prerendering)
+        run: npx playwright install --with-deps chromium
+
       - name: Build
         run: npm run build
 

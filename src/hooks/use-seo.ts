@@ -8,7 +8,7 @@ import { useLocation } from "react-router-dom";
 // and (optionally) structured data, overwriting index.html's static
 // defaults after mount and restoring them on unmount.
 
-export const SITE_URL = "https://labelring.vercel.app";
+export const SITE_URL = "https://www.labelring.co.uk";
 
 interface SeoOptions {
   title: string;

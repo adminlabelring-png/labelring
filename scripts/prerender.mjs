@@ -18,53 +18,68 @@
 // if that file exists, so each of these routes now returns a genuine 200
 // with real content already in the HTML — no JS execution required.
 import { chromium } from "playwright";
-import { spawn } from "node:child_process";
+import { createServer } from "node:http";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
+import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getAllIndexableRoutes } from "./lib/indexable-routes.mjs";
 
 const PORT = 4322;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const DIST_DIR = fileURLToPath(new URL("../dist", import.meta.url));
-const VITE_BIN = fileURLToPath(new URL("../node_modules/.bin/vite", import.meta.url));
 
+const MIME_TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".ico": "image/x-icon",
+  ".xml": "application/xml",
+  ".pdf": "application/pdf",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+};
+
+// A minimal static file server instead of shelling out to `vite preview`.
+// The subprocess approach was flaky in GitHub Actions specifically (the
+// server sometimes didn't finish starting within a generous 30s window,
+// for reasons that never showed up the same way locally) and, worse, its
+// failure modes could leak an orphaned child process that kept Node's
+// event loop alive and hung the whole build. An in-process http server has
+// none of that: no subprocess to spawn, start, or fail to kill — `.listen()`
+// resolves almost immediately, and `.close()` reliably tears it down.
 function startPreviewServer() {
   return new Promise((resolve, reject) => {
-    // Spawn the local vite binary directly rather than going through `npx`.
-    // `npx` resolves/forks a child process for the actual command, so
-    // `proc` here would only ever be a handle to the npx wrapper — killing
-    // it doesn't kill the real vite server, which gets reparented to init
-    // and keeps running (and keeps holding the port) as an orphan forever.
-    const proc = spawn(
-      VITE_BIN,
-      ["preview", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"],
-      { stdio: ["ignore", "pipe", "pipe"] }
-    );
-    let settled = false;
-    // On every path except the happy one, the caller never gets a handle to
-    // `proc` (it's local to this function), so if we don't kill it here
-    // ourselves it leaks as an orphaned process — which keeps Node's event
-    // loop alive and hangs the whole script (and the CI job) indefinitely,
-    // long after this promise has "failed".
-    const settle = (fn, arg) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      fn(arg);
-    };
-    const onData = (chunk) => {
-      if (chunk.toString().includes("Local:")) settle(resolve, proc);
-    };
-    proc.stdout.on("data", onData);
-    proc.stderr.on("data", onData);
-    proc.on("exit", (code) => {
-      settle(reject, new Error(`vite preview exited early with code ${code}`));
+    const server = createServer(async (req, res) => {
+      const pathname = decodeURIComponent(new URL(req.url, BASE_URL).pathname);
+      // Same SPA-fallback behavior `vite preview` provides: any request
+      // without a file extension is a client-side route, so serve the app
+      // shell (index.html) and let the client-side router take it from there.
+      const hasExtension = extname(pathname) !== "";
+      const filePath = join(DIST_DIR, hasExtension ? pathname : "index.html");
+      try {
+        const body = await readFile(filePath);
+        res.writeHead(200, { "Content-Type": MIME_TYPES[extname(filePath)] ?? "application/octet-stream" });
+        res.end(body);
+      } catch {
+        try {
+          const body = await readFile(join(DIST_DIR, "index.html"));
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(body);
+        } catch (e) {
+          res.writeHead(500);
+          res.end(String(e));
+        }
+      }
     });
-    const timer = setTimeout(() => {
-      proc.kill();
-      settle(reject, new Error("vite preview did not start within 30s"));
-    }, 30000);
+    server.on("error", reject);
+    server.listen(PORT, "127.0.0.1", () => resolve(server));
   });
 }
 
@@ -85,12 +100,12 @@ async function main() {
 
   const routes = (await getAllIndexableRoutes()).map((r) => r.path);
 
-  let previewProc;
+  let previewServer;
   let browser;
   let written = 0;
 
   try {
-    previewProc = await startPreviewServer();
+    previewServer = await startPreviewServer();
     // This sandbox pre-installs Chromium at a fixed path rather than the
     // version Playwright would normally auto-download; in a normal CI
     // environment (e.g. GitHub Actions after `playwright install`), the
@@ -119,7 +134,7 @@ async function main() {
     }
   } finally {
     await browser?.close();
-    previewProc?.kill();
+    await new Promise((resolve) => (previewServer ? previewServer.close(resolve) : resolve()));
   }
 
   console.log(`prerender: wrote ${written}/${routes.length} route(s)`);
@@ -127,15 +142,15 @@ async function main() {
 
 // Prerendering is an enhancement on top of the real build output, not a
 // requirement for it — the SPA still works via the 404-redirect trick
-// without these files. If anything here fails (sandbox network quirks,
-// a browser launch issue, whatever), warn and exit 0 rather than failing
-// the whole `npm run build` and blocking the actual deploy.
+// without these files. If anything here fails (network quirks, a browser
+// launch issue, whatever), warn and exit 0 rather than failing the whole
+// `npm run build` and blocking the actual deploy.
 //
 // The explicit process.exit is a deliberate safety net, not just cleanup:
 // this is a one-shot build step, not a long-running service, and a single
-// leaked handle from a spawned/child process (previewProc, the browser,
-// anything) is enough to keep Node's event loop alive and hang the whole
-// `npm run build` — and therefore the CI job — indefinitely.
+// leaked handle (the browser, the server, anything) is enough to keep
+// Node's event loop alive and hang the whole `npm run build` — and
+// therefore the CI job — indefinitely.
 main()
   .catch((e) => {
     console.warn(`prerender: failed, dist/ still has the plain SPA build (${e.message})`);

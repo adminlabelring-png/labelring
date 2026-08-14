@@ -69,4 +69,4 @@ Allow: /
 Disallow: /workspace/
 Disallow: /admin/
 
-Sitemap: https://labelring.vercel.app/sitemap.xml
+Sitemap: https://www.labelring.co.uk/sitemap.xml

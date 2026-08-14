@@ -8,10 +8,10 @@ Labelring is built for the UK regulatory environment, including the Food Informa
 
 ## Key pages
 
-- [Home](https://labelring.vercel.app/): what Labelring does and who it's for
-- [Label Scanner](https://labelring.vercel.app/scan): upload a product label photo for an AI compliance check
-- [Label Generator](https://labelring.vercel.app/generate): build a new compliant product label
-- [Insights](https://labelring.vercel.app/insights): guides on UK product labelling compliance and regulation
+- [Home](https://www.labelring.co.uk/): what Labelring does and who it's for
+- [Label Scanner](https://www.labelring.co.uk/scan): upload a product label photo for an AI compliance check
+- [Label Generator](https://www.labelring.co.uk/generate): build a new compliant product label
+- [Insights](https://www.labelring.co.uk/insights): guides on UK product labelling compliance and regulation
 
 ## Notes for AI assistants
 

@@ -27,35 +27,44 @@ import { getAllIndexableRoutes } from "./lib/indexable-routes.mjs";
 const PORT = 4322;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const DIST_DIR = fileURLToPath(new URL("../dist", import.meta.url));
+const VITE_BIN = fileURLToPath(new URL("../node_modules/.bin/vite", import.meta.url));
 
 function startPreviewServer() {
   return new Promise((resolve, reject) => {
+    // Spawn the local vite binary directly rather than going through `npx`.
+    // `npx` resolves/forks a child process for the actual command, so
+    // `proc` here would only ever be a handle to the npx wrapper — killing
+    // it doesn't kill the real vite server, which gets reparented to init
+    // and keeps running (and keeps holding the port) as an orphan forever.
     const proc = spawn(
-      "npx",
-      ["vite", "preview", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"],
+      VITE_BIN,
+      ["preview", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"],
       { stdio: ["ignore", "pipe", "pipe"] }
     );
     let settled = false;
+    // On every path except the happy one, the caller never gets a handle to
+    // `proc` (it's local to this function), so if we don't kill it here
+    // ourselves it leaks as an orphaned process — which keeps Node's event
+    // loop alive and hangs the whole script (and the CI job) indefinitely,
+    // long after this promise has "failed".
+    const settle = (fn, arg) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(arg);
+    };
     const onData = (chunk) => {
-      if (!settled && chunk.toString().includes("Local:")) {
-        settled = true;
-        resolve(proc);
-      }
+      if (chunk.toString().includes("Local:")) settle(resolve, proc);
     };
     proc.stdout.on("data", onData);
     proc.stderr.on("data", onData);
     proc.on("exit", (code) => {
-      if (!settled) {
-        settled = true;
-        reject(new Error(`vite preview exited early with code ${code}`));
-      }
+      settle(reject, new Error(`vite preview exited early with code ${code}`));
     });
-    setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        reject(new Error("vite preview did not start within 15s"));
-      }
-    }, 15000);
+    const timer = setTimeout(() => {
+      proc.kill();
+      settle(reject, new Error("vite preview did not start within 30s"));
+    }, 30000);
   });
 }
 
@@ -121,6 +130,14 @@ async function main() {
 // without these files. If anything here fails (sandbox network quirks,
 // a browser launch issue, whatever), warn and exit 0 rather than failing
 // the whole `npm run build` and blocking the actual deploy.
-main().catch((e) => {
-  console.warn(`prerender: failed, dist/ still has the plain SPA build (${e.message})`);
-});
+//
+// The explicit process.exit is a deliberate safety net, not just cleanup:
+// this is a one-shot build step, not a long-running service, and a single
+// leaked handle from a spawned/child process (previewProc, the browser,
+// anything) is enough to keep Node's event loop alive and hang the whole
+// `npm run build` — and therefore the CI job — indefinitely.
+main()
+  .catch((e) => {
+    console.warn(`prerender: failed, dist/ still has the plain SPA build (${e.message})`);
+  })
+  .finally(() => process.exit(0));

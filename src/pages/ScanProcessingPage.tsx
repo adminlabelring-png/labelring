@@ -8,6 +8,7 @@ import { getCurrentLockedVersion, createChangeRequest } from "@/lib/version-lock
 import { supabase } from "@/integrations/supabase/client";
 import { getSignupId } from "@/components/LeadCaptureDialog";
 import { toast } from "sonner";
+import { useSeo } from "@/hooks/use-seo";
 
 const steps = [
   "Reading label image…",
@@ -35,6 +36,10 @@ const displayFileName = (files: File[]): string =>
   files.length > 1 ? `${files[0].name} +${files.length - 1} more` : files[0].name;
 
 const ScanProcessingPage = () => {
+  // Transient step in the scan flow, not stable content — nothing here
+  // for a cold crawl to index.
+  useSeo({ title: "Analysing your label… | Labelring", description: "Labelring scan in progress.", noindex: true });
+
   const { files, options, setResult } = useScan();
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);

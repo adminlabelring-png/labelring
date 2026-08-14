@@ -5,6 +5,7 @@ import { getVersionHistory, type ProductVersion, type ChangeRequest } from "@/li
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Lock, Archive, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { useSeo } from "@/hooks/use-seo";
 
 interface TimelineItem {
   date: string;
@@ -14,6 +15,8 @@ interface TimelineItem {
 }
 
 const ProductHistoryPage = () => {
+  useSeo({ title: "Product History | Labelring", description: "Labelring admin.", noindex: true });
+
   const { productKey } = useParams<{ productKey: string }>();
   const [versions, setVersions] = useState<ProductVersion[]>([]);
   const [requests, setRequests] = useState<ChangeRequest[]>([]);

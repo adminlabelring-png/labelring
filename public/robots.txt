@@ -1,14 +1,72 @@
+# /workspace/ and /admin/ are the internal app, not marketing/content —
+# kept out of crawl budget for every listed agent (a named user-agent
+# block is matched exclusively, so these rules are repeated per block
+# rather than relying on the wildcard group alone).
+
 User-agent: Googlebot
 Allow: /
+Disallow: /workspace/
+Disallow: /admin/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /workspace/
+Disallow: /admin/
 
 User-agent: Twitterbot
 Allow: /
+Disallow: /workspace/
+Disallow: /admin/
 
 User-agent: facebookexternalhit
 Allow: /
+Disallow: /workspace/
+Disallow: /admin/
+
+# AI answer-engine / assistant crawlers
+User-agent: GPTBot
+Allow: /
+Disallow: /workspace/
+Disallow: /admin/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /workspace/
+Disallow: /admin/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /workspace/
+Disallow: /admin/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /workspace/
+Disallow: /admin/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /workspace/
+Disallow: /admin/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /workspace/
+Disallow: /admin/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /workspace/
+Disallow: /admin/
+
+User-agent: CCBot
+Allow: /
+Disallow: /workspace/
+Disallow: /admin/
 
 User-agent: *
 Allow: /
+Disallow: /workspace/
+Disallow: /admin/
+
+Sitemap: https://labelring.vercel.app/sitemap.xml

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ImagePlus, Pencil, Trash2, Plus } from "lucide-react";
+import { useSeo } from "@/hooks/use-seo";
 
 const INSIGHTS_HERO_IMAGE = "/insights-hero.jpg";
 
@@ -61,6 +62,13 @@ const emptyForm = {
 };
 
 const InsightsPage = () => {
+  useSeo({
+    title: "Insights — UK Product Labelling & Compliance Guides | Labelring",
+    description:
+      "Guides and updates on UK product labelling compliance, food and cosmetic regulations, and the EU Digital Product Passport.",
+    path: "/insights",
+    image: `${window.location.origin}${INSIGHTS_HERO_IMAGE}`,
+  });
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showSignIn, setShowSignIn] = useState(false);

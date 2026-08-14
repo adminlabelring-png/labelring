@@ -4,6 +4,7 @@ import { Bell, Menu } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { BrandProvider, useBrand } from "@/lib/brand-context";
+import { useSeo } from "@/hooks/use-seo";
 import WorkspaceSidebar from "./WorkspaceSidebar";
 import BrandSwitcher from "./BrandSwitcher";
 
@@ -28,6 +29,14 @@ const TopBar = () => {
 };
 
 const Shell = () => {
+  // Internal app pages, not marketing/content — keep them out of search
+  // results entirely rather than letting Google index a dashboard.
+  useSeo({
+    title: "Workspace | Labelring",
+    description: "Labelring workspace.",
+    noindex: true,
+  });
+
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
 

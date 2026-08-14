@@ -66,6 +66,14 @@ function routeToFilePath(route) {
 }
 
 async function main() {
+  // Vercel already serves every route as a real HTTP 200 via vercel.json's
+  // catch-all rewrite to index.html — it doesn't have GitHub Pages' problem
+  // of a real 404 status on non-root URLs, so it doesn't need this workaround.
+  if (process.env.VERCEL) {
+    console.log("prerender: skipping (Vercel serves all routes as 200 via vercel.json rewrites already)");
+    return;
+  }
+
   const routes = (await getAllIndexableRoutes()).map((r) => r.path);
 
   let previewProc;

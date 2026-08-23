@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import MarkdownContent from "@/components/MarkdownContent";
-import { ArrowLeft, ChevronRight, Twitter, Linkedin, Facebook } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, ScanLine, Sparkles, Twitter, Linkedin, Facebook } from "lucide-react";
 import { useSeo, SITE_URL } from "@/hooks/use-seo";
 
 interface Insight {
@@ -21,6 +21,13 @@ interface Insight {
   updated_at: string;
 }
 
+interface RelatedPost {
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  background_image_url: string | null;
+}
+
 const initials = (name: string) =>
   name
     .trim()
@@ -34,6 +41,7 @@ const InsightPostPage = () => {
   const [post, setPost] = useState<Insight | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [relatedPosts, setRelatedPosts] = useState<RelatedPost[]>([]);
 
   useEffect(() => {
     if (!slug) return;
@@ -50,6 +58,22 @@ const InsightPostPage = () => {
         else setPost(data as unknown as Insight);
         setLoading(false);
       });
+  }, [slug]);
+
+  // Cross-links this post to other Insights content so search engines (and
+  // readers) have a way to reach more pages than just the /insights index —
+  // there's no category/tag field to group by, so "most recent" is the
+  // simplest reliable relation.
+  useEffect(() => {
+    if (!slug) return;
+    supabase
+      .from("insights" as any)
+      .select("slug, title, excerpt, background_image_url")
+      .eq("published", true)
+      .neq("slug", slug)
+      .order("created_at", { ascending: false })
+      .limit(3)
+      .then(({ data }) => setRelatedPosts((data as unknown as RelatedPost[]) ?? []));
   }, [slug]);
 
   useSeo({
@@ -169,7 +193,58 @@ const InsightPostPage = () => {
 
         <MarkdownContent body={post.body} className="py-10" />
 
-        <Link to="/insights" className="inline-flex">
+        <div className="rounded-xl border bg-muted/30 p-6 space-y-3">
+          <h2 className="text-sm font-semibold">Put this into practice</h2>
+          <p className="text-sm text-muted-foreground">
+            Check an existing product label against UK regulations, or generate a compliant one from
+            scratch — both take a couple of minutes.
+          </p>
+          <div className="flex flex-wrap gap-3 pt-1">
+            <Link to="/scan">
+              <Button size="sm" className="gap-2">
+                <ScanLine className="h-3.5 w-3.5" /> Check my label
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+            <Link to="/generate">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Sparkles className="h-3.5 w-3.5" /> Create a digital label
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {relatedPosts.length > 0 && (
+          <div className="mt-10 space-y-4">
+            <h2 className="text-sm font-semibold">More from Insights</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {relatedPosts.map((related) => (
+                <Link
+                  key={related.slug}
+                  to={`/insights/${related.slug}`}
+                  className="group block rounded-lg border overflow-hidden hover:border-foreground/30 transition-colors"
+                >
+                  <div
+                    className="h-24 bg-muted bg-cover bg-center"
+                    style={
+                      related.background_image_url
+                        ? { backgroundImage: `url(${related.background_image_url})` }
+                        : undefined
+                    }
+                  />
+                  <div className="p-3">
+                    <h3 className="text-sm font-medium leading-snug group-hover:underline line-clamp-2">
+                      {related.title}
+                    </h3>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Link to="/insights" className="mt-8 inline-flex">
           <Button variant="outline" size="sm" className="gap-2">
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Insights Library
           </Button>

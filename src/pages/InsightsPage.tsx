@@ -18,7 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ImagePlus, Pencil, Trash2, Plus } from "lucide-react";
+import { ImagePlus, Pencil, Trash2, Plus, ArrowRight, ScanLine, Sparkles } from "lucide-react";
 import { useSeo } from "@/hooks/use-seo";
 
 const INSIGHTS_HERO_IMAGE = "/insights-hero.jpg";
@@ -301,6 +301,29 @@ const InsightsPage = () => {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-muted/30 p-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold">Ready to check your own label?</h2>
+          <p className="text-sm text-muted-foreground">
+            Scan an existing label or generate a compliant one — both take a couple of minutes.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3 shrink-0">
+          <Link to="/scan">
+            <Button size="sm" className="gap-2">
+              <ScanLine className="h-3.5 w-3.5" /> Check my label
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+          <Link to="/generate">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Sparkles className="h-3.5 w-3.5" /> Create a digital label
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
         </div>
       </div>
 

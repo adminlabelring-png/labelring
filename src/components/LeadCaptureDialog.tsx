@@ -25,19 +25,31 @@ import { CATEGORIES } from "@/lib/categories";
 export const LEAD_SESSION_KEY = "labelring_lead_submitted";
 export const SIGNUP_ID_KEY = "labelring_signup_id";
 
-export const hasSubmittedLead = () => {
-  try {
-    return sessionStorage.getItem(LEAD_SESSION_KEY) === "1";
-  } catch {
-    return false;
-  }
-};
+// Testing/QA escape hatch: visiting any page with ?skip_lead=1 bypasses the
+// lead-capture form for the rest of that browser session, same as actually
+// submitting it, so repeat manual testing doesn't mean re-entering name/
+// email/company every time. Not a security control — it only skips a
+// marketing form, nothing access-gated.
+const TEST_BYPASS_PARAM = "skip_lead";
 
 export const markLeadSubmitted = () => {
   try {
     sessionStorage.setItem(LEAD_SESSION_KEY, "1");
   } catch {
     /* ignore */
+  }
+};
+
+export const hasSubmittedLead = () => {
+  try {
+    if (sessionStorage.getItem(LEAD_SESSION_KEY) === "1") return true;
+    if (new URLSearchParams(window.location.search).get(TEST_BYPASS_PARAM) === "1") {
+      markLeadSubmitted();
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
   }
 };
 

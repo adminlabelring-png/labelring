@@ -69,13 +69,24 @@ const ScanProcessingPage = () => {
           files.map(async (f) => ({ base64: await fileToBase64(f), fileName: f.name }))
         );
 
-        const { data, error } = await supabase.functions.invoke("analyze-label", {
-          body: {
-            images,
-            isSeasonal: options.isSeasonal,
-            seasonTag: options.seasonTag,
-          },
-        });
+        // The AI call has no server-side response guarantee we can see from
+        // here — a stalled connection or a wedged upstream provider leaves
+        // this awaiting forever with nothing to catch, silently defeating
+        // the fallback-to-mock-result path below (its whole job is to keep
+        // the flow moving when the AI call fails). An explicit timeout
+        // turns "hangs forever" into a real, catchable error.
+        const abort = new AbortController();
+        const timeout = setTimeout(() => abort.abort(), 45_000);
+        const { data, error } = await supabase.functions
+          .invoke("analyze-label", {
+            body: {
+              images,
+              isSeasonal: options.isSeasonal,
+              seasonTag: options.seasonTag,
+            },
+            signal: abort.signal,
+          })
+          .finally(() => clearTimeout(timeout));
 
         if (error) {
           // supabase-js only gives a generic message on error.message -- the

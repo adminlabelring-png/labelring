@@ -91,7 +91,12 @@ async function callOpenRouter(system: string, userText: string, images: ImageInp
       "X-Title": "Labelring",
     },
     body: JSON.stringify({
-      model: "google/gemini-flash-latest",
+      // OpenRouter renamed its floating "always latest" aliases to a
+      // leading-tilde form (verified against their live /api/v1/models
+      // catalog) — the un-prefixed slug started returning
+      // "is not a valid model ID" once this stopped being the direct
+      // (and only working) path.
+      model: "~google/gemini-flash-latest",
       messages: [
         { role: "system", content: system },
         {

@@ -10,7 +10,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const MODEL = "google/gemini-flash-latest";
+// OpenRouter renamed its floating "always latest" aliases to a
+// leading-tilde form (verified against their live /api/v1/models
+// catalog) — the un-prefixed slug returns "is not a valid model ID".
+const MODEL = "~google/gemini-flash-latest";
 
 type Pack = "food" | "cosmetic" | "generic";
 
